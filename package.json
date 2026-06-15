@@ -1,0 +1,15 @@
+{
+  "name": "sildram-studio-site",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sildram Studio website with secure server-side AI chat endpoint.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "resend": "^6.12.4"
+  }
+}
