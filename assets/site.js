@@ -813,6 +813,90 @@ function createLanguageSwitcher() {
     nav.insertBefore(switcher, cta);
 }
 
+function createMobileMenu() {
+    const nav = document.querySelector(".nav");
+    const navInner = document.querySelector(".nav-inner");
+    const links = document.querySelector(".nav-links");
+    const cta = document.querySelector(".nav-cta");
+    if (!nav || !navInner || !links || document.querySelector(".nav-menu-toggle")) return;
+
+    const toggle = document.createElement("button");
+    toggle.className = "nav-menu-toggle";
+    toggle.type = "button";
+    toggle.setAttribute("aria-label", "Open menu");
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.innerHTML = "<span></span><span></span><span></span>";
+
+    const overlay = document.createElement("div");
+    overlay.className = "nav-drawer-overlay";
+    overlay.setAttribute("aria-hidden", "true");
+
+    const drawer = document.createElement("aside");
+    drawer.className = "nav-drawer";
+    drawer.setAttribute("aria-label", "Mobile navigation");
+    drawer.setAttribute("aria-hidden", "true");
+
+    const drawerLinks = links.cloneNode(true);
+    drawerLinks.classList.add("nav-links-drawer");
+
+    const drawerSwitcher = document.createElement("div");
+    drawerSwitcher.className = "language-switcher language-switcher-drawer";
+    drawerSwitcher.setAttribute("aria-label", "Language switcher");
+    drawerSwitcher.innerHTML = `
+        <button type="button" data-lang="uk">UA</button>
+        <button type="button" data-lang="ru">RU</button>
+        <button type="button" data-lang="en">EN</button>
+    `;
+
+    const drawerCta = cta ? cta.cloneNode(true) : null;
+    if (drawerCta) drawerCta.classList.add("nav-cta-drawer");
+
+    drawer.innerHTML = `
+        <div class="nav-drawer-head">
+            <a class="brand" href="index.html">Sildram <span>Studio</span></a>
+            <button class="nav-drawer-close" type="button" aria-label="Close menu">×</button>
+        </div>
+    `;
+    const drawerContent = document.createElement("div");
+    drawerContent.className = "nav-drawer-content";
+    drawerContent.append(drawerLinks, drawerSwitcher);
+    if (drawerCta) drawerContent.append(drawerCta);
+    drawer.append(drawerContent);
+
+    navInner.append(toggle);
+    nav.append(overlay, drawer);
+
+    const setMenuOpen = (isOpen) => {
+        document.body.classList.toggle("nav-menu-open", isOpen);
+        nav.classList.toggle("menu-open", isOpen);
+        toggle.setAttribute("aria-expanded", String(isOpen));
+        toggle.setAttribute("aria-label", isOpen ? "Close menu" : "Open menu");
+        if (isOpen) {
+            overlay.setAttribute("aria-hidden", "false");
+            drawer.setAttribute("aria-hidden", "false");
+        } else {
+            overlay.setAttribute("aria-hidden", "true");
+            drawer.setAttribute("aria-hidden", "true");
+        }
+    };
+
+    toggle.addEventListener("click", () => setMenuOpen(!nav.classList.contains("menu-open")));
+    overlay.addEventListener("click", () => setMenuOpen(false));
+    drawer.querySelector(".nav-drawer-close").addEventListener("click", () => setMenuOpen(false));
+    drawer.querySelectorAll("a").forEach((link) => {
+        link.addEventListener("click", () => setMenuOpen(false));
+    });
+    drawerSwitcher.querySelectorAll("button").forEach((button) => {
+        button.addEventListener("click", () => {
+            applyLanguage(button.dataset.lang);
+            setMenuOpen(false);
+        });
+    });
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") setMenuOpen(false);
+    });
+}
+
 document.querySelectorAll('a[href="#contact"]').forEach((link) => {
     link.addEventListener("click", (event) => {
         const target = document.querySelector("#contact");
@@ -823,7 +907,19 @@ document.querySelectorAll('a[href="#contact"]').forEach((link) => {
 });
 
 createLanguageSwitcher();
+createMobileMenu();
 applyLanguage(currentLang);
+
+document.querySelectorAll("img").forEach((image, index) => {
+    image.decoding = "async";
+    if (image.closest(".hero") && index === 0) {
+        image.loading = "eager";
+        image.fetchPriority = "high";
+        return;
+    }
+    image.loading = "lazy";
+    image.fetchPriority = "low";
+});
 
 const copyToast = document.createElement("div");
 copyToast.className = "copy-toast";
@@ -866,15 +962,17 @@ document.querySelectorAll(".section, .card, .hero-panel, .cta-box, .form-card").
     revealObserver.observe(element);
 });
 
-document.querySelectorAll(".card, .hero-panel, .cta-box, .form-card").forEach((element) => {
-    element.addEventListener("mousemove", (event) => {
-        const rect = element.getBoundingClientRect();
-        const x = ((event.clientX - rect.left) / rect.width) * 100;
-        const y = ((event.clientY - rect.top) / rect.height) * 100;
-        element.style.setProperty("--mouse-x", `${x}%`);
-        element.style.setProperty("--mouse-y", `${y}%`);
+if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+    document.querySelectorAll(".card, .hero-panel, .cta-box, .form-card").forEach((element) => {
+        element.addEventListener("mousemove", (event) => {
+            const rect = element.getBoundingClientRect();
+            const x = ((event.clientX - rect.left) / rect.width) * 100;
+            const y = ((event.clientY - rect.top) / rect.height) * 100;
+            element.style.setProperty("--mouse-x", `${x}%`);
+            element.style.setProperty("--mouse-y", `${y}%`);
+        });
     });
-});
+}
 
 function createChatWidget() {
     const widget = document.createElement("section");
