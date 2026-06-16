@@ -314,6 +314,12 @@ async function requestHandler(req, res) {
     try {
         const url = new URL(req.url, `http://${req.headers.host}`);
 
+        if (req.method === "GET" && url.pathname === "/favicon.ico") {
+            res.writeHead(204, securityHeaders());
+            res.end();
+            return;
+        }
+
         if (req.method === "GET" && url.pathname === "/api/config") {
             handleConfig(req, res);
             return;
@@ -574,14 +580,13 @@ function serveStatic(urlPath, res, headOnly) {
         return;
     }
 
-    fs.stat(filePath, (statError, stats) => {
-        if (statError || !stats.isFile()) {
-            sendFile(path.join(rootDir, "index.html"), res, headOnly);
-            return;
-        }
-
+    try {
+        const stats = fs.statSync(filePath);
+        if (!stats.isFile()) throw new Error("Not a file");
         sendFile(filePath, res, headOnly);
-    });
+    } catch (error) {
+        sendFile(path.join(rootDir, "index.html"), res, headOnly);
+    }
 }
 
 function isBlockedStaticPath(filePath) {
@@ -609,7 +614,7 @@ function sendFile(filePath, res, headOnly) {
         return;
     }
 
-    fs.createReadStream(filePath).pipe(res);
+    res.end(fs.readFileSync(filePath));
 }
 
 function sendJson(res, status, payload) {
@@ -710,11 +715,10 @@ function createApiHandler(method, handler) {
     };
 }
 
-module.exports = {
-    configApiHandler: createApiHandler("GET", handleConfig),
-    chatApiHandler: createApiHandler("POST", handleChat),
-    contactApiHandler: createApiHandler("POST", handleContact)
-};
+module.exports = requestHandler;
+module.exports.configApiHandler = createApiHandler("GET", handleConfig);
+module.exports.chatApiHandler = createApiHandler("POST", handleChat);
+module.exports.contactApiHandler = createApiHandler("POST", handleContact);
 
 function loadEnv(filePath) {
     if (!fs.existsSync(filePath)) return;

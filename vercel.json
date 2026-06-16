@@ -1,4 +1,18 @@
 {
+  "functions": {
+    "server.js": {
+      "includeFiles": [
+        "*.html",
+        "assets/**"
+      ]
+    },
+    "api/*.js": {
+      "includeFiles": [
+        "*.html",
+        "assets/**"
+      ]
+    }
+  },
   "headers": [
     {
       "source": "/(.*)",
