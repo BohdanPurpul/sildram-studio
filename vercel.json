@@ -1,16 +1,10 @@
 {
   "functions": {
     "server.js": {
-      "includeFiles": [
-        "*.html",
-        "assets/**"
-      ]
+      "includeFiles": "{*.html,assets/**}"
     },
     "api/*.js": {
-      "includeFiles": [
-        "*.html",
-        "assets/**"
-      ]
+      "includeFiles": "{*.html,assets/**}"
     }
   },
   "headers": [
