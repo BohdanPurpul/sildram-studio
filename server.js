@@ -308,7 +308,8 @@ function findRelevantKnowledgeBlocks(message, history = [], limit = 5) {
     const stopWords = new Set([
         "the", "and", "for", "with", "what", "who", "when", "where", "why", "how",
         "this", "that", "you", "your", "are", "was", "were", "won", "can", "does",
-        "про", "для", "что", "как", "где", "кто", "или", "это", "який", "яка", "що", "для", "або", "цей"
+        "\u043f\u0440\u043e", "\u0434\u043b\u044f", "\u0447\u0442\u043e", "\u043a\u0430\u043a", "\u0433\u0434\u0435", "\u043a\u0442\u043e", "\u0438\u043b\u0438", "\u044d\u0442\u043e",
+        "\u044f\u043a\u0438\u0439", "\u044f\u043a\u0430", "\u0449\u043e", "\u0430\u0431\u043e", "\u0446\u0435\u0439"
     ]);
     const terms = [...new Set(query.split(/\s+/).filter((term) => term.length >= 3 && !stopWords.has(term)))];
     if (!terms.length) return [];
@@ -374,7 +375,7 @@ function buildExtractiveKnowledgeReply(lang, blocks) {
 function buildLocalKnowledgeReply(lang, message, history, relevantBlocks = []) {
     if (relevantBlocks.length) return "";
 
-    const hasServiceSignal = /sildram|ai|telegram|crm|website|site|bot|assistant|consultant|automation|сайт|бот|автоматизац|консультант|ассист|асист/i.test(
+    const hasServiceSignal = /sildram|ai|telegram|crm|website|site|bot|assistant|consultant|automation|\u0441\u0430\u0439\u0442|\u0431\u043e\u0442|\u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0437\u0430\u0446|\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u043d\u0442|\u0430\u0441\u0441\u0438\u0441\u0442|\u0430\u0441\u0438\u0441\u0442/i.test(
         normalizeServiceTerms([message, ...history.map((item) => item.content || "")].join(" "))
     );
 
