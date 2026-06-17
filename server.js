@@ -6,6 +6,8 @@ const { Resend } = require("resend");
 
 const rootDir = __dirname;
 const knowledgePath = path.join(rootDir, "knowledge", "sildram.md");
+const dataDir = path.join(rootDir, "data");
+const leadsPath = path.join(dataDir, "leads.json");
 const port = Number(process.env.PORT || 3000);
 const envPath = path.join(rootDir, ".env");
 const rateBuckets = new Map();
@@ -467,6 +469,11 @@ async function requestHandler(req, res) {
             return;
         }
 
+        if (req.method === "POST" && url.pathname === "/api/lead") {
+            await handleLead(req, res);
+            return;
+        }
+
         if (req.method !== "GET" && req.method !== "HEAD") {
             sendJson(res, 405, { error: "Method not allowed" });
             return;
@@ -689,6 +696,120 @@ async function handleContact(req, res) {
     sendJson(res, 200, { ok: true, message: "Request sent" });
 }
 
+async function handleLead(req, res) {
+    if (!allowRequest(req)) {
+        sendJson(res, 429, { ok: false, error: "Too many requests. Please try again later." });
+        return;
+    }
+
+    const body = await readJson(req, 24_576);
+    const lead = {
+        id: `lead_${Date.now()}_${crypto.randomBytes(5).toString("hex")}`,
+        createdAt: new Date().toISOString(),
+        name: cleanContactField(body.name, 120),
+        contact: cleanContactField(body.contact, 180),
+        interest: cleanContactField(body.interest, 180),
+        task: cleanContactField(body.task, 3000),
+        language: ["uk", "ua", "ru", "en"].includes(body.language) ? (body.language === "ua" ? "uk" : body.language) : "uk",
+        history: sanitizeLeadHistory(body.history)
+    };
+
+    if (!lead.contact) {
+        sendJson(res, 400, { ok: false, error: "Contact is required." });
+        return;
+    }
+
+    if (!lead.task) {
+        sendJson(res, 400, { ok: false, error: "Task is required." });
+        return;
+    }
+
+    const stored = saveLead(lead);
+    await notifyLeadByEmail(lead);
+
+    sendJson(res, 200, {
+        ok: true,
+        stored,
+        id: lead.id
+    });
+}
+
+function sanitizeLeadHistory(history) {
+    if (!Array.isArray(history)) return [];
+    return history
+        .slice(-12)
+        .filter((item) => item && (item.role === "user" || item.role === "assistant") && item.content)
+        .map((item) => ({
+            role: item.role,
+            content: cleanContactField(item.content, 1200)
+        }));
+}
+
+function saveLead(lead) {
+    try {
+        fs.mkdirSync(dataDir, { recursive: true });
+        if (!fs.existsSync(leadsPath)) {
+            fs.writeFileSync(leadsPath, "[]\n", "utf8");
+        }
+
+        const raw = fs.readFileSync(leadsPath, "utf8").trim();
+        const leads = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(leads)) throw new Error("Lead storage is not an array");
+        leads.push(lead);
+        fs.writeFileSync(leadsPath, `${JSON.stringify(leads, null, 2)}\n`, "utf8");
+        return true;
+    } catch (error) {
+        console.error("Lead storage fallback:", error);
+        console.log("Sildram lead:", JSON.stringify(lead));
+        return false;
+    }
+}
+
+async function notifyLeadByEmail(lead) {
+    const apiKey = process.env.RESEND_API_KEY;
+    const to = process.env.LEAD_TO_EMAIL;
+    const fromAddress = process.env.LEAD_FROM_EMAIL;
+
+    if (!apiKey || !to || !fromAddress) return false;
+
+    const resend = new Resend(apiKey);
+    const history = lead.history
+        .map((item) => `${item.role}: ${item.content}`)
+        .join("\n");
+    const text = [
+        "New lead from Sildram Studio website",
+        "",
+        `Name: ${lead.name || "-"}`,
+        `Contact: ${lead.contact}`,
+        `Interest: ${lead.interest || "-"}`,
+        `Task: ${lead.task || "-"}`,
+        `Language: ${lead.language}`,
+        `Date: ${lead.createdAt}`,
+        "",
+        "Recent chat messages:",
+        history || "-"
+    ].join("\n");
+
+    try {
+        const { error } = await resend.emails.send({
+            from: `Sildram Studio <${fromAddress}>`,
+            to: [to],
+            subject: "New lead from Sildram Studio website",
+            text
+        });
+
+        if (error) {
+            console.error("Resend lead error:", error);
+            return false;
+        }
+
+        return true;
+    } catch (error) {
+        console.error("Resend lead exception:", error);
+        return false;
+    }
+}
+
 function cleanContactField(value, maxLength) {
     return String(value || "")
         .replace(/\0/g, "")
@@ -839,6 +960,7 @@ function isBlockedStaticPath(filePath) {
         || parts.includes("node_modules")
         || parts.includes("_archive_staging")
         || parts.includes("knowledge")
+        || parts.includes("data")
         || filePath.endsWith(".zip")
         || filePath.endsWith(".log")
         || path.basename(filePath).toLowerCase() === "server.js"
@@ -963,6 +1085,7 @@ module.exports = requestHandler;
 module.exports.configApiHandler = createApiHandler("GET", handleConfig);
 module.exports.chatApiHandler = createApiHandler("POST", handleChat);
 module.exports.contactApiHandler = createApiHandler("POST", handleContact);
+module.exports.leadApiHandler = createApiHandler("POST", handleLead);
 
 function loadEnv(filePath) {
     if (!fs.existsSync(filePath)) return;

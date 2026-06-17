@@ -12,3 +12,4 @@ playwright-report/
 *.bak
 _archive_staging/
 _archive/
+data/leads.json

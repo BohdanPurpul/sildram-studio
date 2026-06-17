@@ -1011,6 +1011,9 @@ const CHAT_SESSION_KEYS = {
     history: "sildram-chat-history",
     userName: "sildram-chat-user-name",
     userInterest: "sildram-chat-user-interest",
+    userContact: "sildram-chat-user-contact",
+    leadStage: "sildram-chat-lead-stage",
+    leadTask: "sildram-chat-lead-task",
     welcomed: "sildram-chat-welcomed"
 };
 
@@ -1086,29 +1089,68 @@ function writeChatHistory(history) {
 
 function detectChatInterest(text) {
     const value = String(text || "").toLowerCase();
-    if (/telegram|телеграм|бот/.test(value)) return "telegram";
-    if (/crm|срм|црм/.test(value)) return "crm";
-    if (/ai[-\s]?консульт|консультант|consultant/.test(value)) return "consultant";
-    if (/сайт|website|web|landing|лендинг/.test(value)) return "website";
-    if (/автоматиза|automation|рутин|процесс|процес/.test(value)) return "automation";
+    if (/telegram|\u0442\u0435\u043b\u0435\u0433\u0440\u0430\u043c|\u0431\u043e\u0442|телеграм|бот/.test(value)) return "telegram";
+    if (/crm|\u0441\u0440\u043c|\u0446\u0440\u043c|срм|црм/.test(value)) return "crm";
+    if (/ai[-\s]?\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442|\u0438\u0438[-\s]?\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442|\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u043d\u0442|consultant|ai[-\s]?консульт|консультант/.test(value)) return "consultant";
+    if (/\u0441\u0430\u0439\u0442|website|web|landing|\u043b\u0435\u043d\u0434\u0438\u043d\u0433|сайт|лендинг/.test(value)) return "website";
+    if (/\u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0437\u0430|automation|\u0440\u0443\u0442\u0438\u043d|\u043f\u0440\u043e\u0446\u0435\u0441\u0441|автоматиза|рутин|процесс|процес/.test(value)) return "automation";
     return "";
 }
 
+function detectLeadIntent(text) {
+    const value = String(text || "").toLowerCase();
+    return /(want\s+to\s+order|want\s+to\s+buy|i\s+need|need\s+a|need\s+an|consultation|how\s+much|cost|price|contact\s+you|\u0445\u043e\u0447\u0443\s+(\u043a\u0443\u043f\u0438\u0442\u044c|\u0437\u0430\u043a\u0430\u0437\u0430\u0442\u044c|\u0441\u0430\u0439\u0442|\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u0446\u0438\u044e)|\u043d\u0443\u0436\u0435\u043d|\u043d\u0443\u0436\u043d\u0430|\u0441\u043a\u043e\u043b\u044c\u043a\u043e\s+\u0441\u0442\u043e\u0438\u0442|\u043a\u0430\u043a\s+\u0441\s+\u0432\u0430\u043c\u0438\s+\u0441\u0432\u044f\u0437\u0430\u0442\u044c\u0441\u044f|\u0445\u043e\u0447\u0443\s+\u0437\u0430\u043c\u043e\u0432\u0438\u0442\u0438|\u043f\u043e\u0442\u0440\u0456\u0431\u0435\u043d|\u043f\u043e\u0442\u0440\u0456\u0431\u043d\u0430|\u0441\u043a\u0456\u043b\u044c\u043a\u0438\s+\u043a\u043e\u0448\u0442\u0443\u0454|\u0445\u043e\u0447\u0443\s+\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u0446\u0456\u044e|\u044f\u043a\s+.+\u0437\u0432.?\u044f\u0437\u0430\u0442\u0438\u0441\u044f)/i.test(value);
+}
+
+function detectLeadContact(text) {
+    const value = String(text || "").trim();
+    const email = value.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+    if (email) return email[0];
+    const telegram = value.match(/@[A-Za-z0-9_]{4,32}/);
+    if (telegram) return telegram[0];
+    const phone = value.match(/(?:\+?\d[\s().-]*){7,18}/);
+    if (phone) return phone[0].trim();
+    if (/telegram|whatsapp|viber|\u0442\u0435\u043b\u0435\u0433\u0440\u0430\u043c|телеграм/i.test(value) && value.length <= 120) return value;
+    return "";
+}
+
+function getLeadCopy() {
+    const copy = {
+        uk: {
+            contact: (name) => name ? `\u0427\u0443\u0434\u043e\u0432\u043e, ${name}. \u0429\u043e\u0431 \u043c\u0438 \u043c\u043e\u0433\u043b\u0438 \u0437\u0432'\u044f\u0437\u0430\u0442\u0438\u0441\u044f \u0456 \u0437\u0430\u043f\u0440\u043e\u043f\u043e\u043d\u0443\u0432\u0430\u0442\u0438 \u0440\u0456\u0448\u0435\u043d\u043d\u044f, \u0437\u0430\u043b\u0438\u0448\u0442\u0435, \u0431\u0443\u0434\u044c \u043b\u0430\u0441\u043a\u0430, \u0437\u0440\u0443\u0447\u043d\u0438\u0439 \u043a\u043e\u043d\u0442\u0430\u043a\u0442: Telegram, \u0442\u0435\u043b\u0435\u0444\u043e\u043d \u0430\u0431\u043e email.` : "\u0427\u0443\u0434\u043e\u0432\u043e. \u0429\u043e\u0431 \u043c\u0438 \u043c\u043e\u0433\u043b\u0438 \u0437\u0432'\u044f\u0437\u0430\u0442\u0438\u0441\u044f \u0456 \u0437\u0430\u043f\u0440\u043e\u043f\u043e\u043d\u0443\u0432\u0430\u0442\u0438 \u0440\u0456\u0448\u0435\u043d\u043d\u044f, \u0437\u0430\u043b\u0438\u0448\u0442\u0435, \u0431\u0443\u0434\u044c \u043b\u0430\u0441\u043a\u0430, \u0437\u0440\u0443\u0447\u043d\u0438\u0439 \u043a\u043e\u043d\u0442\u0430\u043a\u0442: Telegram, \u0442\u0435\u043b\u0435\u0444\u043e\u043d \u0430\u0431\u043e email.",
+            task: "\u0414\u044f\u043a\u0443\u044e! \u041a\u043e\u0440\u043e\u0442\u043a\u043e \u043e\u043f\u0438\u0448\u0456\u0442\u044c \u0437\u0430\u0434\u0430\u0447\u0443: \u0449\u043e \u043f\u043e\u0442\u0440\u0456\u0431\u043d\u043e \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0437\u0443\u0432\u0430\u0442\u0438 \u0430\u0431\u043e \u044f\u043a\u0438\u0439 \u0431\u043e\u0442/\u0441\u0430\u0439\u0442 \u0432\u0430\u043c \u043f\u043e\u0442\u0440\u0456\u0431\u0435\u043d?",
+            done: (name) => name ? `\u0414\u044f\u043a\u0443\u044e, ${name}. \u042f \u0437\u0430\u0444\u0456\u043a\u0441\u0443\u0432\u0430\u0432 \u0437\u0430\u044f\u0432\u043a\u0443. \u041a\u043e\u043c\u0430\u043d\u0434\u0430 Sildram Studio \u0437\u043c\u043e\u0436\u0435 \u0437\u0432'\u044f\u0437\u0430\u0442\u0438\u0441\u044f \u0437 \u0432\u0430\u043c\u0438 \u0437\u0430 \u0432\u043a\u0430\u0437\u0430\u043d\u0438\u043c \u043a\u043e\u043d\u0442\u0430\u043a\u0442\u043e\u043c.` : "\u0414\u044f\u043a\u0443\u044e. \u042f \u0437\u0430\u0444\u0456\u043a\u0441\u0443\u0432\u0430\u0432 \u0437\u0430\u044f\u0432\u043a\u0443. \u041a\u043e\u043c\u0430\u043d\u0434\u0430 Sildram Studio \u0437\u043c\u043e\u0436\u0435 \u0437\u0432'\u044f\u0437\u0430\u0442\u0438\u0441\u044f \u0437 \u0432\u0430\u043c\u0438 \u0437\u0430 \u0432\u043a\u0430\u0437\u0430\u043d\u0438\u043c \u043a\u043e\u043d\u0442\u0430\u043a\u0442\u043e\u043c.",
+            fail: "\u0417\u0430\u044f\u0432\u043a\u0443 \u043f\u0456\u0434\u0433\u043e\u0442\u043e\u0432\u043b\u0435\u043d\u043e, \u0430\u043b\u0435 \u043d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u0437\u0431\u0435\u0440\u0435\u0433\u0442\u0438 \u0457\u0457 \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u043d\u043e. \u0411\u0443\u0434\u044c \u043b\u0430\u0441\u043a\u0430, \u043f\u0440\u043e\u0434\u0443\u0431\u043b\u044e\u0439\u0442\u0435 \u0457\u0457 \u0447\u0435\u0440\u0435\u0437 \u0444\u043e\u0440\u043c\u0443 \u043d\u0430 \u0441\u0442\u043e\u0440\u0456\u043d\u0446\u0456 \u00ab\u041a\u043e\u043d\u0442\u0430\u043a\u0442\u0438\u00bb."
+        },
+        ru: {
+            contact: (name) => name ? `\u041e\u0442\u043b\u0438\u0447\u043d\u043e, ${name}. \u0427\u0442\u043e\u0431\u044b \u043c\u044b \u043c\u043e\u0433\u043b\u0438 \u0441\u0432\u044f\u0437\u0430\u0442\u044c\u0441\u044f \u0438 \u043f\u0440\u0435\u0434\u043b\u043e\u0436\u0438\u0442\u044c \u0440\u0435\u0448\u0435\u043d\u0438\u0435, \u043e\u0441\u0442\u0430\u0432\u044c\u0442\u0435, \u043f\u043e\u0436\u0430\u043b\u0443\u0439\u0441\u0442\u0430, \u0443\u0434\u043e\u0431\u043d\u044b\u0439 \u043a\u043e\u043d\u0442\u0430\u043a\u0442: Telegram, \u0442\u0435\u043b\u0435\u0444\u043e\u043d \u0438\u043b\u0438 email.` : "\u041e\u0442\u043b\u0438\u0447\u043d\u043e. \u0427\u0442\u043e\u0431\u044b \u043c\u044b \u043c\u043e\u0433\u043b\u0438 \u0441\u0432\u044f\u0437\u0430\u0442\u044c\u0441\u044f \u0438 \u043f\u0440\u0435\u0434\u043b\u043e\u0436\u0438\u0442\u044c \u0440\u0435\u0448\u0435\u043d\u0438\u0435, \u043e\u0441\u0442\u0430\u0432\u044c\u0442\u0435, \u043f\u043e\u0436\u0430\u043b\u0443\u0439\u0441\u0442\u0430, \u0443\u0434\u043e\u0431\u043d\u044b\u0439 \u043a\u043e\u043d\u0442\u0430\u043a\u0442: Telegram, \u0442\u0435\u043b\u0435\u0444\u043e\u043d \u0438\u043b\u0438 email.",
+            task: "\u0421\u043f\u0430\u0441\u0438\u0431\u043e! \u041a\u0440\u0430\u0442\u043a\u043e \u043e\u043f\u0438\u0448\u0438\u0442\u0435 \u0437\u0430\u0434\u0430\u0447\u0443: \u0447\u0442\u043e \u043d\u0443\u0436\u043d\u043e \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0437\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0438\u043b\u0438 \u043a\u0430\u043a\u043e\u0439 \u0431\u043e\u0442/\u0441\u0430\u0439\u0442 \u0432\u0430\u043c \u043d\u0443\u0436\u0435\u043d?",
+            done: (name) => name ? `\u0421\u043f\u0430\u0441\u0438\u0431\u043e, ${name}. \u042f \u0437\u0430\u0444\u0438\u043a\u0441\u0438\u0440\u043e\u0432\u0430\u043b \u0437\u0430\u044f\u0432\u043a\u0443. \u041a\u043e\u043c\u0430\u043d\u0434\u0430 Sildram Studio \u0441\u043c\u043e\u0436\u0435\u0442 \u0441\u0432\u044f\u0437\u0430\u0442\u044c\u0441\u044f \u0441 \u0432\u0430\u043c\u0438 \u043f\u043e \u0443\u043a\u0430\u0437\u0430\u043d\u043d\u043e\u043c\u0443 \u043a\u043e\u043d\u0442\u0430\u043a\u0442\u0443.` : "\u0421\u043f\u0430\u0441\u0438\u0431\u043e. \u042f \u0437\u0430\u0444\u0438\u043a\u0441\u0438\u0440\u043e\u0432\u0430\u043b \u0437\u0430\u044f\u0432\u043a\u0443. \u041a\u043e\u043c\u0430\u043d\u0434\u0430 Sildram Studio \u0441\u043c\u043e\u0436\u0435\u0442 \u0441\u0432\u044f\u0437\u0430\u0442\u044c\u0441\u044f \u0441 \u0432\u0430\u043c\u0438 \u043f\u043e \u0443\u043a\u0430\u0437\u0430\u043d\u043d\u043e\u043c\u0443 \u043a\u043e\u043d\u0442\u0430\u043a\u0442\u0443.",
+            fail: "\u0417\u0430\u044f\u0432\u043a\u0430 \u043f\u043e\u0434\u0433\u043e\u0442\u043e\u0432\u043b\u0435\u043d\u0430, \u043d\u043e \u043d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0441\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c \u0435\u0451 \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438. \u041f\u043e\u0436\u0430\u043b\u0443\u0439\u0441\u0442\u0430, \u043f\u0440\u043e\u0434\u0443\u0431\u043b\u0438\u0440\u0443\u0439\u0442\u0435 \u0435\u0451 \u0447\u0435\u0440\u0435\u0437 \u0444\u043e\u0440\u043c\u0443 \u043d\u0430 \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0435 \u00ab\u041a\u043e\u043d\u0442\u0430\u043a\u0442\u044b\u00bb."
+        },
+        en: {
+            contact: (name) => name ? `Great, ${name}. So we can contact you and suggest a solution, please leave a convenient contact: Telegram, phone, or email.` : "Great. So we can contact you and suggest a solution, please leave a convenient contact: Telegram, phone, or email.",
+            task: "Thanks! Briefly describe the task: what should be automated or what kind of bot/website do you need?",
+            done: (name) => name ? `Thank you, ${name}. I've recorded your request. The Sildram Studio team will be able to contact you using the provided contact.` : "Thank you. I've recorded your request. The Sildram Studio team will be able to contact you using the provided contact.",
+            fail: "The request is prepared, but it could not be saved automatically. Please duplicate it through the form on the Contacts page."
+        }
+    };
+    return copy[currentLang] || copy.uk;
+}
 function detectVisitorName(text) {
     let value = String(text || "").trim();
-    const namedMatch = value.match(/(?:меня зовут|мое имя|моё имя|my name is|мене звати)\s+([A-Za-zА-Яа-яІіЇїЄєҐґ'-]{2,24})/i);
+    const namedMatch = value.match(/(?:\u043c\u0435\u043d\u044f\s+\u0437\u043e\u0432\u0443\u0442|\u043c\u043e[\u0451\u0435]\s+\u0438\u043c\u044f|my name is|\u043c\u0435\u043d\u0435\s+\u0437\u0432\u0430\u0442\u0438)\s+([A-Za-z\u0400-\u04FF'-]{2,24})/i);
     if (namedMatch) return normalizeVisitorName(namedMatch[1]);
 
     value = value.replace(/[,.!?;:]/g, " ").replace(/\s+/g, " ").trim();
-    if (!value || detectChatInterest(value)) return "";
+    if (!value || detectChatInterest(value) || detectLeadIntent(value) || detectLeadContact(value)) return "";
     const words = value.split(" ");
     if (words.length > 2) return "";
-    const blocked = /^(привет|добрый|добрий|hello|hi|хочу|нужен|нужна|потрібен|потрібна|need|want|сайт|бот|crm|ai)$/i;
+    const blocked = /^(hello|hi|need|want|crm|ai|telegram|\u043f\u0440\u0438\u0432\u0435\u0442|\u0434\u043e\u0431\u0440\u044b\u0439|\u0434\u043e\u0431\u0440\u0438\u0439|\u0445\u043e\u0447\u0443|\u043d\u0443\u0436\u0435\u043d|\u043d\u0443\u0436\u043d\u0430|\u043f\u043e\u0442\u0440\u0456\u0431\u0435\u043d|\u043f\u043e\u0442\u0440\u0456\u0431\u043d\u0430|\u0441\u0430\u0439\u0442|\u0431\u043e\u0442)$/i;
     if (words.some((word) => blocked.test(word))) return "";
-    if (!words.every((word) => /^[A-Za-zА-Яа-яІіЇїЄєҐґ'-]{2,24}$/.test(word))) return "";
+    if (!words.every((word) => /^[A-Za-z\u0400-\u04FF'-]{2,24}$/.test(word))) return "";
     return words.map(normalizeVisitorName).join(" ");
 }
-
 function normalizeVisitorName(name) {
     const clean = String(name || "").trim();
     if (!clean) return "";
@@ -1172,6 +1214,9 @@ function createChatWidget() {
     let captchaVerified = false;
     let visitorName = readChatSessionValue(CHAT_SESSION_KEYS.userName);
     let visitorInterest = readChatSessionValue(CHAT_SESSION_KEYS.userInterest);
+    let visitorContact = readChatSessionValue(CHAT_SESSION_KEYS.userContact);
+    let leadStage = readChatSessionValue(CHAT_SESSION_KEYS.leadStage) || "idle";
+    let leadTask = readChatSessionValue(CHAT_SESSION_KEYS.leadTask);
 
     const addMessage = (text, type = "bot") => {
         const message = document.createElement("div");
@@ -1237,6 +1282,88 @@ function createChatWidget() {
         }
     };
 
+    const setLeadStage = (stage) => {
+        leadStage = stage;
+        writeChatSessionValue(CHAT_SESSION_KEYS.leadStage, stage);
+    };
+
+    const saveLeadContact = (contact) => {
+        visitorContact = contact;
+        writeChatSessionValue(CHAT_SESSION_KEYS.userContact, visitorContact);
+    };
+
+    const saveLeadTask = (task) => {
+        leadTask = task;
+        writeChatSessionValue(CHAT_SESSION_KEYS.leadTask, leadTask);
+    };
+
+    const submitLead = async () => {
+        const response = await fetch("/api/lead", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                name: visitorName,
+                contact: visitorContact,
+                interest: visitorInterest,
+                task: leadTask,
+                language: currentLang,
+                history
+            })
+        });
+
+        if (!response.ok) throw new Error(`Lead endpoint returned ${response.status}`);
+        const data = await response.json();
+        if (!data.ok) throw new Error("Lead endpoint returned ok=false");
+        return data;
+    };
+
+    const handleLeadFlow = async (value, memory) => {
+        const copy = getLeadCopy();
+        const contact = detectLeadContact(value);
+        const leadIntent = detectLeadIntent(value);
+
+        if (contact && leadStage === "need_contact") {
+            saveLeadContact(contact);
+            setLeadStage("need_task");
+            return copy.task;
+        }
+
+        if (leadStage === "need_task") {
+            saveLeadTask(value);
+            try {
+                await submitLead();
+                setLeadStage("completed");
+                return copy.done(visitorName);
+            } catch (error) {
+                setLeadStage("completed");
+                return copy.fail;
+            }
+        }
+
+        if (leadIntent) {
+            if (memory.detectedInterest) {
+                visitorInterest = memory.detectedInterest;
+                writeChatSessionValue(CHAT_SESSION_KEYS.userInterest, visitorInterest);
+            }
+
+            if (contact) {
+                saveLeadContact(contact);
+                setLeadStage("need_task");
+                return copy.task;
+            }
+
+            if (!visitorContact) {
+                setLeadStage("need_contact");
+                return copy.contact(visitorName);
+            }
+
+            setLeadStage("need_task");
+            return copy.task;
+        }
+
+        return "";
+    };
+
     const applyOnboardingMemory = (value) => {
         const detectedInterest = detectChatInterest(value);
         const detectedName = detectVisitorName(value);
@@ -1274,6 +1401,13 @@ function createChatWidget() {
         rememberMessage("user", value);
 
         const memory = applyOnboardingMemory(value);
+        const leadReply = await handleLeadFlow(value, memory);
+        if (leadReply) {
+            addMessage(leadReply, "bot");
+            rememberMessage("assistant", leadReply);
+            return;
+        }
+
         const onboardingReply = getOnboardingReply(memory);
         if (onboardingReply) {
             addMessage(onboardingReply, "bot");
