@@ -1,13 +1,18 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 const { Resend } = require("resend");
 
 const rootDir = __dirname;
+const knowledgePath = path.join(rootDir, "knowledge", "sildram.md");
 const port = Number(process.env.PORT || 3000);
 const envPath = path.join(rootDir, ".env");
 const rateBuckets = new Map();
 const chatChallengeBuckets = new Map();
+const chatSessionCookieName = "sildram_chat_verified";
+const chatSessionMaxAgeSeconds = 60 * 60;
+let knowledgeCache = null;
 
 loadEnv(envPath);
 
@@ -266,13 +271,126 @@ function buildPriceQualificationReply(lang, topics) {
     return `${locale.price}\n\n${prompt}\n\n${items}`;
 }
 
-function buildAssistantInstructions(lang, message, history) {
+function getKnowledgeBlocks() {
+    if (knowledgeCache) return knowledgeCache;
+
+    try {
+        const raw = fs.readFileSync(knowledgePath, "utf8");
+        const blocks = [];
+        const sections = raw.split(/\n(?=#{1,3}\s+)/g);
+
+        for (const section of sections) {
+            const clean = section.trim();
+            if (!clean) continue;
+            const titleMatch = clean.match(/^#{1,3}\s+(.+)$/m);
+            const title = titleMatch ? titleMatch[1].trim() : "Sildram Studio";
+            blocks.push({
+                title,
+                content: clean,
+                searchable: normalizeSearchText(clean)
+            });
+        }
+
+        knowledgeCache = blocks;
+    } catch (error) {
+        console.error("Knowledge base read error:", error);
+        knowledgeCache = [];
+    }
+
+    return knowledgeCache;
+}
+
+function findRelevantKnowledgeBlocks(message, history = [], limit = 5) {
+    const query = normalizeSearchText([
+        ...history.slice(-4).map((item) => item.content || ""),
+        message
+    ].join(" "));
+    const stopWords = new Set([
+        "the", "and", "for", "with", "what", "who", "when", "where", "why", "how",
+        "this", "that", "you", "your", "are", "was", "were", "won", "can", "does",
+        "���", "���", "���", "���", "���", "���", "���", "���", "����", "���", "��", "���", "���", "���"
+    ]);
+    const terms = [...new Set(query.split(/\s+/).filter((term) => term.length >= 3 && !stopWords.has(term)))];
+    if (!terms.length) return [];
+
+    return getKnowledgeBlocks()
+        .map((block) => {
+            let score = 0;
+            for (const term of terms) {
+                if (block.searchable.includes(term)) score += term.length > 5 ? 2 : 1;
+                if (normalizeSearchText(block.title).includes(term)) score += 3;
+            }
+            return { ...block, score };
+        })
+        .filter((block) => block.score >= 2)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, limit);
+}
+
+function buildKnowledgeContext(blocks) {
+    if (!blocks.length) return "";
+    return blocks
+        .map((block, index) => `Knowledge block ${index + 1}: ${block.content}`)
+        .join("\n\n");
+}
+
+function normalizeSearchText(value) {
+    return normalizeServiceTerms(value)
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}\s-]/gu, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+function buildNoKnowledgeReply(lang) {
+    const replies = {
+        en: "I do not have enough information in the Sildram Studio knowledge base to answer this accurately. Please describe your task through the Contacts form, and the team will review it.",
+        ru: "В базе знаний Sildram Studio недостаточно информации, чтобы ответить точно. Пожалуйста, опишите задачу через форму на странице «Контакты», и команда её рассмотрит.",
+        uk: "У базі знань Sildram Studio недостатньо інформації, щоб відповісти точно. Будь ласка, опишіть задачу через форму на сторінці «Контакти», і команда її розгляне."
+    };
+    return replies[lang] || replies.uk;
+}
+
+function buildExtractiveKnowledgeReply(lang, blocks) {
+    const prefixes = {
+        en: "From the Sildram Studio knowledge base:",
+        ru: "Po baze znaniy Sildram Studio:",
+        uk: "Za bazoiu znan Sildram Studio:"
+    };
+    const suffixes = {
+        en: "If you want to discuss a project, describe your task through the Contacts form so the team can review it.",
+        ru: "Esli hotite obsudit proekt, opishite zadachu cherez formu na stranitse Contacts, i komanda ee rassmotrit.",
+        uk: "Yakshcho khochete obhovoryty proiekt, opyshit zadachu cherez formu na storintsi Contacts, i komanda yii rozhliane."
+    };
+    const text = blocks
+        .slice(0, 2)
+        .map((block) => block.content.replace(/^#{1,3}\s+.+\n?/, "").trim())
+        .filter(Boolean)
+        .join("\n\n")
+        .slice(0, 900);
+
+    return `${prefixes[lang] || prefixes.uk}\n\n${text}\n\n${suffixes[lang] || suffixes.uk}`;
+}
+function buildLocalKnowledgeReply(lang, message, history, relevantBlocks = []) {
+    if (relevantBlocks.length) return "";
+
+    const hasServiceSignal = /sildram|ai|telegram|crm|website|site|bot|assistant|consultant|automation|����|���|�����������|�����������|������|�����/i.test(
+        normalizeServiceTerms([message, ...history.map((item) => item.content || "")].join(" "))
+    );
+
+    return hasServiceSignal ? buildNoKnowledgeReply(lang) : (languageInstructions[lang] || languageInstructions.uk).offTopic;
+}
+function buildAssistantInstructions(lang, message, history, sessionContext = {}, knowledgeContext = "") {
     const locale = languageInstructions[lang] || languageInstructions.uk;
     const intent = detectCommercialIntent(message);
     const topics = detectConversationTopics(history, message);
     const topicContext = topics.length
         ? topics.join(", ")
         : "No specific service has been identified yet";
+    const visitorContext = [
+        sessionContext.userName ? `Visitor name: ${sessionContext.userName}` : "",
+        sessionContext.userInterest ? `Visitor interest: ${sessionContext.userInterest}` : ""
+    ].filter(Boolean).join("\n") || "No visitor name or interest is known yet.";
     const runtimePriority = intent === "price"
         ? `PRICE INTENT DETECTED IN THE CURRENT MESSAGE.
 This overrides any product explanation. Do not provide prices, ranges, approximate
@@ -307,7 +425,20 @@ ${runtimePriority}
 
 CURRENT CONVERSATION CONTEXT
 Services discussed in the current message or recent history: ${topicContext}.
-Use this context to understand short follow-up questions.`;
+Use this context to understand short follow-up questions.
+
+VISITOR SESSION CONTEXT
+${visitorContext}
+Use this only to personalize the current session. Do not claim it is stored
+permanently and do not ask for login or registration.
+
+KNOWLEDGE CONTEXT
+${knowledgeContext || "No relevant knowledge blocks were found for this message."}
+
+Use only the knowledge context above and the current conversation context for
+factual claims about Sildram Studio. If the knowledge context is empty or not
+enough for an accurate answer, say that there is not enough information and guide
+the visitor to the Contacts form.`;
 }
 
 async function requestHandler(req, res) {
@@ -372,6 +503,10 @@ async function handleChat(req, res) {
     const history = Array.isArray(body.history) ? body.history.slice(-8) : [];
     const lang = ["uk", "ru", "en"].includes(body.lang) ? body.lang : "uk";
     const captchaToken = String(body.captchaToken || "");
+    const sessionContext = {
+        userName: cleanContactField(body.userName, 80),
+        userInterest: cleanContactField(body.userInterest, 80)
+    };
 
     if (!message) {
         sendJson(res, 400, { error: "Порожнє повідомлення." });
@@ -392,17 +527,54 @@ async function handleChat(req, res) {
         cleanHistory.pop();
     }
 
-    if (detectCommercialIntent(message) === "price") {
-        const topics = detectConversationTopics(cleanHistory, message);
-        sendJson(res, 200, {
-            reply: buildPriceQualificationReply(lang, topics)
+    const captchaResult = await verifyChatAccess(req, captchaToken);
+    if (!captchaResult.ok) {
+        sendJson(res, 403, {
+            error: "Please complete the verification and try again.",
+            captchaRequired: true
         });
         return;
     }
 
-    const captchaOk = await verifyCaptcha(captchaToken, req);
+    const chatHeaders = captchaResult.setCookie
+        ? { "Set-Cookie": captchaResult.setCookie }
+        : {};
+    if (chatHeaders["Set-Cookie"]) {
+        res.setHeader("Set-Cookie", chatHeaders["Set-Cookie"]);
+    }
+
+    const relevantBlocks = findRelevantKnowledgeBlocks(message, cleanHistory, 5);
+    const knowledgeContext = buildKnowledgeContext(relevantBlocks);
+
+    if (detectCommercialIntent(message) === "price") {
+        const topics = detectConversationTopics(cleanHistory, message);
+        sendJson(res, 200, {
+            reply: buildPriceQualificationReply(lang, topics),
+            captchaRequired: false
+        }, chatHeaders);
+        return;
+    }
+
+    const captchaOk = true;
     if (!captchaOk) {
         sendJson(res, 403, { error: "Підтвердіть, що ви не бот, і спробуйте ще раз." });
+        return;
+    }
+
+    const localReply = buildLocalKnowledgeReply(lang, message, cleanHistory, relevantBlocks);
+    if (localReply) {
+        sendJson(res, 200, {
+            reply: localReply,
+            captchaRequired: false
+        }, chatHeaders);
+        return;
+    }
+
+    if (!process.env.OPENAI_API_KEY) {
+        sendJson(res, 200, {
+            reply: buildExtractiveKnowledgeReply(lang, relevantBlocks),
+            captchaRequired: false
+        }, chatHeaders);
         return;
     }
 
@@ -425,7 +597,7 @@ async function handleChat(req, res) {
         },
         body: JSON.stringify({
             model: process.env.OPENAI_MODEL || "gpt-5.1",
-            instructions: buildAssistantInstructions(lang, message, cleanHistory),
+            instructions: buildAssistantInstructions(lang, message, cleanHistory, sessionContext, knowledgeContext),
             input,
             max_output_tokens: 450
         })
@@ -552,6 +724,75 @@ async function verifyCaptcha(token, req) {
     }
 }
 
+async function verifyChatAccess(req, token) {
+    if (hasValidChatSession(req)) {
+        return { ok: true, setCookie: "" };
+    }
+
+    const captchaOk = await verifyCaptcha(token, req);
+    if (!captchaOk) {
+        return { ok: false, setCookie: "" };
+    }
+
+    return {
+        ok: true,
+        setCookie: createChatSessionCookie(req)
+    };
+}
+
+function hasValidChatSession(req) {
+    const value = parseCookies(req.headers.cookie || "")[chatSessionCookieName];
+    if (!value) return false;
+
+    const parts = value.split(".");
+    if (parts.length !== 3) return false;
+
+    const [expiresRaw, nonce, signature] = parts;
+    const expires = Number(expiresRaw);
+    if (!Number.isFinite(expires) || Date.now() > expires) return false;
+
+    const expected = signChatSession(`${expiresRaw}.${nonce}`);
+    return safeEqual(signature, expected);
+}
+
+function createChatSessionCookie(req) {
+    const expires = Date.now() + chatSessionMaxAgeSeconds * 1000;
+    const nonce = crypto.randomBytes(12).toString("base64url");
+    const payload = `${expires}.${nonce}`;
+    const value = `${payload}.${signChatSession(payload)}`;
+    const secure = isHttpsRequest(req) ? "; Secure" : "";
+    return `${chatSessionCookieName}=${value}; Max-Age=${chatSessionMaxAgeSeconds}; Path=/; HttpOnly; SameSite=Lax${secure}`;
+}
+
+function signChatSession(payload) {
+    const secret = process.env.TURNSTILE_SECRET_KEY || process.env.OPENAI_API_KEY || "sildram-local-chat-session";
+    return crypto.createHmac("sha256", secret).update(payload).digest("base64url");
+}
+
+function parseCookies(cookieHeader) {
+    return String(cookieHeader || "")
+        .split(";")
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .reduce((cookies, part) => {
+            const index = part.indexOf("=");
+            if (index === -1) return cookies;
+            cookies[part.slice(0, index)] = part.slice(index + 1);
+            return cookies;
+        }, {});
+}
+
+function safeEqual(a, b) {
+    const left = Buffer.from(String(a || ""));
+    const right = Buffer.from(String(b || ""));
+    return left.length === right.length && crypto.timingSafeEqual(left, right);
+}
+
+function isHttpsRequest(req) {
+    return req.headers["x-forwarded-proto"] === "https"
+        || req.socket.encrypted === true;
+}
+
 function allowInitialChallengeByIp(req) {
     const ip = req.socket.remoteAddress || "unknown";
     const now = Date.now();
@@ -596,6 +837,7 @@ function isBlockedStaticPath(filePath) {
     return parts.some((part) => part.startsWith("."))
         || parts.includes("node_modules")
         || parts.includes("_archive_staging")
+        || parts.includes("knowledge")
         || filePath.endsWith(".zip")
         || filePath.endsWith(".log")
         || path.basename(filePath).toLowerCase() === "server.js"
@@ -617,11 +859,12 @@ function sendFile(filePath, res, headOnly) {
     res.end(fs.readFileSync(filePath));
 }
 
-function sendJson(res, status, payload) {
+function sendJson(res, status, payload, extraHeaders = {}) {
     res.writeHead(status, {
         "Content-Type": "application/json; charset=utf-8",
         "Cache-Control": "no-store",
-        ...securityHeaders()
+        ...securityHeaders(),
+        ...extraHeaders
     });
     res.end(JSON.stringify(payload));
 }

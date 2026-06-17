@@ -676,6 +676,14 @@ const originalTextNodes = new WeakMap();
 let turnstileSiteKey = "";
 
 Object.assign(I18N.ru, {
+    "Основна навігація": "Основная навигация",
+    "Допомагаємо компаніям та приватним клієнтам позбутися рутини, швидше обробляти заявки, покращити сервіс і отримувати більше результату завдяки зрозумілим цифровим інструментам.": "Помогаем компаниям и частным клиентам избавиться от рутины, быстрее обрабатывать заявки, улучшать сервис и получать больше результата благодаря понятным цифровым инструментам.",
+    "Ми створюємо Telegram-ботів, AI-консультантів для сайту, автоматизацію заявок і CRM-інтеграції, щоб бізнес менше втрачав звернень і не витрачав команду на повторювану рутину.": "Мы создаём Telegram-ботов, AI-консультантов для сайта, автоматизацию заявок и CRM-интеграции, чтобы бизнес меньше терял обращения и не тратил команду на повторяющуюся рутину.",
+    "Персональний AI-асистент може працювати як планувальник, консультант, тьютор або Telegram-помічник під ваш стиль життя, навчання чи роботи.": "Персональный AI-ассистент может работать как планировщик, консультант, тьютор или Telegram-помощник под ваш стиль жизни, обучения или работы.",
+    "Якщо сайт виглядає застарілим, працює повільно або його взагалі немає, частина потенційних клієнтів просто піде до конкурентів. Ми створюємо сучасні сайти, які пояснюють послуги, викликають довіру та приймають заявки.": "Если сайт выглядит устаревшим, работает медленно или его вообще нет, часть потенциальных клиентов просто уйдёт к конкурентам. Мы создаём современные сайты, которые объясняют услуги, вызывают доверие и принимают обращения.",
+    "Sildram Studio займається розробкою AI-асистентів, Telegram-ботів, бізнес-автоматизацій, CRM-інтеграцій і сучасних сайтів. Наш підхід простий: спочатку розуміємо задачу, потім пропонуємо рішення, яке справді можна використовувати.": "Sildram Studio занимается разработкой AI-ассистентов, Telegram-ботов, бизнес-автоматизаций, CRM-интеграций и современных сайтов. Наш подход простой: сначала понимаем задачу, затем предлагаем решение, которое действительно можно использовать.",
+    "Інтеграції потрібні, щоб заявки не губилися, дані не переносилися вручну, а команда швидко бачила, хто звернувся і що потрібно зробити далі.": "Интеграции нужны, чтобы обращения не терялись, данные не переносились вручную, а команда быстро видела, кто обратился и что нужно сделать дальше.",
+    "Наприклад: потрібно приймати заявки з сайту, передавати їх у Telegram і підключити AI-консультанта.": "Например: нужно принимать обращения с сайта, передавать их в Telegram и подключить AI-консультанта.",
     "Контакти": "Контакты",
     "Яке рішення вас цікавить?": "Какое решение вас интересует?",
     "Інше / Потрібна консультація": "Другое / Нужна консультация",
@@ -704,6 +712,13 @@ Object.assign(I18N.ru, {
 });
 
 Object.assign(I18N.en, {
+    "Основна навігація": "Main navigation",
+    "Допомагаємо компаніям та приватним клієнтам позбутися рутини, швидше обробляти заявки, покращити сервіс і отримувати більше результату завдяки зрозумілим цифровим інструментам.": "We help companies and private clients reduce routine work, process requests faster, improve service, and get more value from clear digital tools.",
+    "Ми створюємо Telegram-ботів, AI-консультантів для сайту, автоматизацію заявок і CRM-інтеграції, щоб бізнес менше втрачав звернень і не витрачав команду на повторювану рутину.": "We create Telegram bots, website AI consultants, request automation, and CRM integrations so businesses lose fewer inquiries and spend less team time on repetitive routine.",
+    "Персональний AI-асистент може працювати як планувальник, консультант, тьютор або Telegram-помічник під ваш стиль життя, навчання чи роботи.": "A personal AI assistant can work as a planner, consultant, tutor, or Telegram helper tailored to your lifestyle, learning, or work.",
+    "Якщо сайт виглядає застарілим, працює повільно або його взагалі немає, частина потенційних клієнтів просто піде до конкурентів. Ми створюємо сучасні сайти, які пояснюють послуги, викликають довіру та приймають заявки.": "If a website looks outdated, works slowly, or does not exist, some potential clients will simply go to competitors. We create modern websites that explain services, build trust, and receive requests.",
+    "Sildram Studio займається розробкою AI-асистентів, Telegram-ботів, бізнес-автоматизацій, CRM-інтеграцій і сучасних сайтів. Наш підхід простий: спочатку розуміємо задачу, потім пропонуємо рішення, яке справді можна використовувати.": "Sildram Studio develops AI assistants, Telegram bots, business automation, CRM integrations, and modern websites. Our approach is simple: first we understand the task, then we suggest a solution that can actually be used.",
+    "Інтеграції потрібні, щоб заявки не губилися, дані не переносилися вручну, а команда швидко бачила, хто звернувся і що потрібно зробити далі.": "Integrations are needed so requests are not lost, data is not copied manually, and the team can quickly see who contacted you and what should happen next.",
     "Контакти": "Contacts",
     "Яке рішення вас цікавить?": "Which solution are you interested in?",
     "Інше / Потрібна консультація": "Other / Need Consultation",
@@ -737,7 +752,25 @@ TITLE_I18N.en["Sildram Studio | Контакти"] = "Sildram Studio | Contacts"
 function translateValue(value, lang = currentLang) {
     const clean = String(value || "").trim();
     if (!clean || lang === DEFAULT_LANG) return clean;
-    return I18N[lang]?.[clean] || clean;
+    const dictionary = I18N[lang] || {};
+    if (dictionary[clean]) return polishLocalizedText(dictionary[clean], lang);
+
+    const normalized = clean.replace(/\s+/g, " ");
+    const match = Object.keys(dictionary).find((key) => key.replace(/\s+/g, " ") === normalized);
+    return polishLocalizedText(match ? dictionary[match] : clean, lang);
+}
+
+function polishLocalizedText(value, lang = currentLang) {
+    if (lang !== "ru") return value;
+    return String(value)
+        .replace(/заявки/g, "обращения")
+        .replace(/Заявки/g, "Обращения")
+        .replace(/заявок/g, "обращений")
+        .replace(/Заявок/g, "Обращений")
+        .replace(/заявку/g, "обращение")
+        .replace(/Заявку/g, "Обращение")
+        .replace(/заявкой/g, "обращением")
+        .replace(/Заявкой/g, "Обращением");
 }
 
 function translateNodeText(node, lang) {
@@ -974,6 +1007,114 @@ if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
     });
 }
 
+const CHAT_SESSION_KEYS = {
+    history: "sildram-chat-history",
+    userName: "sildram-chat-user-name",
+    userInterest: "sildram-chat-user-interest",
+    welcomed: "sildram-chat-welcomed"
+};
+
+const CHAT_ONBOARDING = {
+    uk: {
+        welcome: "Привіт! Я AI-консультант Sildram Studio. Як можу до вас звертатися і що ви хочете покращити: сайт, Telegram-бот, AI-консультант, CRM чи автоматизацію?",
+        nameOnly: (name) => `Приємно познайомитися, ${name}! Що ви хочете покращити: сайт, Telegram-бот, AI-консультант, CRM чи автоматизацію?`,
+        taskOnly: {
+            telegram: "Зрозумів, Telegram-бот може допомогти із заявками, консультаціями та передачею даних менеджеру. Як можу до вас звертатися?",
+            website: "Зрозумів, сайт може допомогти краще пояснити послуги, приймати заявки та викликати довіру. Як можу до вас звертатися?",
+            consultant: "Зрозумів, AI-консультант може відповідати на питання відвідувачів, уточнювати задачу та допомагати залишити заявку. Як можу до вас звертатися?",
+            crm: "Зрозумів, CRM може допомогти не губити звернення, контролювати статуси та прибрати ручне копіювання даних. Як можу до вас звертатися?",
+            automation: "Зрозумів, автоматизація може забрати повторювані дії та зробити обробку звернень зрозумілішою. Як можу до вас звертатися?"
+        }
+    },
+    ru: {
+        welcome: "Привет! Я AI-консультант Sildram Studio. Как могу к вам обращаться и что вы хотите улучшить: сайт, Telegram-бот, AI-консультант, CRM или автоматизацию?",
+        nameOnly: (name) => `Приятно познакомиться, ${name}! Что вы хотите улучшить: сайт, Telegram-бот, AI-консультант, CRM или автоматизацию?`,
+        taskOnly: {
+            telegram: "Понял, Telegram-бот может помочь с заявками, консультациями и передачей данных менеджеру. Как могу к вам обращаться?",
+            website: "Понял, сайт может помочь лучше объяснить услуги, принимать обращения и вызывать доверие. Как могу к вам обращаться?",
+            consultant: "Понял, AI-консультант может отвечать на вопросы посетителей, уточнять задачу и помогать оставить обращение. Как могу к вам обращаться?",
+            crm: "Понял, CRM может помочь не терять обращения, контролировать статусы и убрать ручное копирование данных. Как могу к вам обращаться?",
+            automation: "Понял, автоматизация может убрать повторяющиеся действия и сделать обработку обращений понятнее. Как могу к вам обращаться?"
+        }
+    },
+    en: {
+        welcome: "Hi! I'm the AI consultant of Sildram Studio. What should I call you, and what would you like to improve: a website, Telegram bot, AI consultant, CRM, or automation?",
+        nameOnly: (name) => `Nice to meet you, ${name}! What would you like to improve: a website, Telegram bot, AI consultant, CRM, or automation?`,
+        taskOnly: {
+            telegram: "Got it, a Telegram bot can help with requests, consultations, and passing data to a manager. What should I call you?",
+            website: "Got it, a website can help explain your services, receive requests, and build trust. What should I call you?",
+            consultant: "Got it, an AI consultant can answer visitor questions, clarify the task, and help submit a request. What should I call you?",
+            crm: "Got it, CRM can help keep requests organized, track statuses, and reduce manual data copying. What should I call you?",
+            automation: "Got it, automation can reduce repetitive actions and make request processing clearer. What should I call you?"
+        }
+    }
+};
+
+function getChatCopy() {
+    return CHAT_ONBOARDING[currentLang] || CHAT_ONBOARDING.uk;
+}
+
+function readChatSessionValue(key) {
+    try {
+        return sessionStorage.getItem(key) || "";
+    } catch (error) {
+        return "";
+    }
+}
+
+function writeChatSessionValue(key, value) {
+    try {
+        if (value) sessionStorage.setItem(key, value);
+        else sessionStorage.removeItem(key);
+    } catch (error) {}
+}
+
+function readChatHistory() {
+    try {
+        const parsed = JSON.parse(sessionStorage.getItem(CHAT_SESSION_KEYS.history) || "[]");
+        return Array.isArray(parsed) ? parsed.slice(-12) : [];
+    } catch (error) {
+        return [];
+    }
+}
+
+function writeChatHistory(history) {
+    try {
+        sessionStorage.setItem(CHAT_SESSION_KEYS.history, JSON.stringify(history.slice(-12)));
+    } catch (error) {}
+}
+
+function detectChatInterest(text) {
+    const value = String(text || "").toLowerCase();
+    if (/telegram|телеграм|бот/.test(value)) return "telegram";
+    if (/crm|срм|црм/.test(value)) return "crm";
+    if (/ai[-\s]?консульт|консультант|consultant/.test(value)) return "consultant";
+    if (/сайт|website|web|landing|лендинг/.test(value)) return "website";
+    if (/автоматиза|automation|рутин|процесс|процес/.test(value)) return "automation";
+    return "";
+}
+
+function detectVisitorName(text) {
+    let value = String(text || "").trim();
+    const namedMatch = value.match(/(?:меня зовут|мое имя|моё имя|my name is|мене звати)\s+([A-Za-zА-Яа-яІіЇїЄєҐґ'-]{2,24})/i);
+    if (namedMatch) return normalizeVisitorName(namedMatch[1]);
+
+    value = value.replace(/[,.!?;:]/g, " ").replace(/\s+/g, " ").trim();
+    if (!value || detectChatInterest(value)) return "";
+    const words = value.split(" ");
+    if (words.length > 2) return "";
+    const blocked = /^(привет|добрый|добрий|hello|hi|хочу|нужен|нужна|потрібен|потрібна|need|want|сайт|бот|crm|ai)$/i;
+    if (words.some((word) => blocked.test(word))) return "";
+    if (!words.every((word) => /^[A-Za-zА-Яа-яІіЇїЄєҐґ'-]{2,24}$/.test(word))) return "";
+    return words.map(normalizeVisitorName).join(" ");
+}
+
+function normalizeVisitorName(name) {
+    const clean = String(name || "").trim();
+    if (!clean) return "";
+    return clean.charAt(0).toUpperCase() + clean.slice(1);
+}
+
 function createChatWidget() {
     const widget = document.createElement("section");
     widget.className = "chat-widget";
@@ -1028,6 +1169,9 @@ function createChatWidget() {
     const form = widget.querySelector(".chat-form");
     const captcha = widget.querySelector(".chat-captcha");
     let captchaToken = "";
+    let captchaVerified = false;
+    let visitorName = readChatSessionValue(CHAT_SESSION_KEYS.userName);
+    let visitorInterest = readChatSessionValue(CHAT_SESSION_KEYS.userInterest);
 
     const addMessage = (text, type = "bot") => {
         const message = document.createElement("div");
@@ -1037,7 +1181,13 @@ function createChatWidget() {
         messages.scrollTop = messages.scrollHeight;
     };
 
-    const history = [];
+    const history = readChatHistory();
+
+    const rememberMessage = (role, content) => {
+        history.push({ role, content });
+        while (history.length > 12) history.shift();
+        writeChatHistory(history);
+    };
 
     const apiErrorReply = () => translateValue(
         "AI-консультант тимчасово недоступний. Спробуйте ще раз трохи пізніше або скористайтеся формою на сторінці «Контакти»."
@@ -1048,10 +1198,25 @@ function createChatWidget() {
             const response = await fetch("/api/chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ message: text, history, lang: currentLang, captchaToken })
+                body: JSON.stringify({
+                    message: text,
+                    history,
+                    lang: currentLang,
+                    captchaToken: captchaVerified ? "" : captchaToken,
+                    userName: visitorName,
+                    userInterest: visitorInterest
+                })
             });
 
             if (!response.ok) {
+                if (response.status === 403) {
+                    captchaVerified = false;
+                    captcha.hidden = false;
+                    if (window.turnstile && captcha.dataset.widgetId) {
+                        captchaToken = "";
+                        window.turnstile.reset(captcha.dataset.widgetId);
+                    }
+                }
                 throw new Error(`AI endpoint returned ${response.status}`);
             }
 
@@ -1060,17 +1225,61 @@ function createChatWidget() {
                 throw new Error("AI endpoint returned an empty reply");
             }
 
+            if (data.captchaRequired !== true) {
+                captchaVerified = true;
+                captcha.hidden = true;
+                captchaToken = "";
+            }
+
             return data.reply;
         } catch (error) {
             return apiErrorReply();
         }
     };
 
+    const applyOnboardingMemory = (value) => {
+        const detectedInterest = detectChatInterest(value);
+        const detectedName = detectVisitorName(value);
+
+        if (detectedInterest) {
+            visitorInterest = detectedInterest;
+            writeChatSessionValue(CHAT_SESSION_KEYS.userInterest, visitorInterest);
+        }
+
+        if (detectedName && !visitorName) {
+            visitorName = detectedName;
+            writeChatSessionValue(CHAT_SESSION_KEYS.userName, visitorName);
+        }
+
+        return { detectedName, detectedInterest };
+    };
+
+    const getOnboardingReply = (memory) => {
+        const copy = getChatCopy();
+        if (memory.detectedName && !memory.detectedInterest) {
+            return copy.nameOnly(memory.detectedName);
+        }
+
+        if (memory.detectedInterest && !visitorName && !memory.detectedName) {
+            return copy.taskOnly[memory.detectedInterest] || copy.taskOnly.automation;
+        }
+
+        return "";
+    };
+
     const sendMessage = async (text) => {
         const value = text.trim();
         if (!value) return;
         addMessage(value, "user");
-        history.push({ role: "user", content: value });
+        rememberMessage("user", value);
+
+        const memory = applyOnboardingMemory(value);
+        const onboardingReply = getOnboardingReply(memory);
+        if (onboardingReply) {
+            addMessage(onboardingReply, "bot");
+            rememberMessage("assistant", onboardingReply);
+            return;
+        }
 
         const typing = document.createElement("div");
         typing.className = "chat-message bot";
@@ -1081,17 +1290,24 @@ function createChatWidget() {
         const reply = await getAssistantReply(value);
         typing.remove();
         addMessage(reply, "bot");
-        history.push({ role: "assistant", content: reply });
+        rememberMessage("assistant", reply);
 
-        if (window.turnstile && captcha.dataset.widgetId) {
-            captchaToken = "";
-            window.turnstile.reset(captcha.dataset.widgetId);
-        }
+    };
+
+    const ensureWelcomeMessage = () => {
+        if (history.length || readChatSessionValue(CHAT_SESSION_KEYS.welcomed)) return;
+        const welcome = getChatCopy().welcome;
+        addMessage(welcome);
+        rememberMessage("assistant", welcome);
+        writeChatSessionValue(CHAT_SESSION_KEYS.welcomed, "1");
     };
 
     launcher.addEventListener("click", () => {
         widget.classList.toggle("open");
-        if (widget.classList.contains("open")) input.focus();
+        if (widget.classList.contains("open")) {
+            ensureWelcomeMessage();
+            input.focus();
+        }
     });
 
     close.addEventListener("click", () => widget.classList.remove("open"));
@@ -1106,7 +1322,9 @@ function createChatWidget() {
         input.value = "";
     });
 
-    addMessage(translateValue("Вітаю! Я AI-асистент Sildram Studio. Можу допомогти зрозуміти, що краще підійде: сайт, Telegram-бот, AI-консультант або CRM-автоматизація."));
+    if (history.length) {
+        history.forEach((item) => addMessage(item.content, item.role === "user" ? "user" : "bot"));
+    }
 
     setupCaptcha(captcha, (token) => {
         captchaToken = token;
