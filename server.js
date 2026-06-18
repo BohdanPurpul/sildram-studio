@@ -109,6 +109,11 @@ CRM TERMINOLOGY AND CONVERSATION CONTEXT
   answer about the currently discussed project instead of starting a new topic.
 
 CONSULTATION FLOW
+- If the visitor only greets you, greet them back naturally. If their name is not
+  known, gently ask what you should call them. If the name is known, do not ask
+  for it again.
+- Avoid repeating the same fallback answer several times in a row. If the visitor
+  is vague, ask one concrete clarifying question instead.
 - First understand the visitor's goal, business problem, or repetitive task.
 - Explain which Sildram Studio solution may fit and what practical result it can provide.
 - If the request is vague, ask one clear question at a time.
@@ -352,6 +357,29 @@ function buildNoKnowledgeReply(lang) {
         uk: "У базі знань Sildram Studio недостатньо інформації, щоб відповісти точно. Будь ласка, опишіть задачу через форму на сторінці «Контакти», і команда її розгляне."
     };
     return replies[lang] || replies.uk;
+}
+
+function buildEmptyAiReply(lang, history = []) {
+    const replies = {
+        uk: [
+            "\u041c\u043e\u0436\u0443 \u043f\u0456\u0434\u043a\u0430\u0437\u0430\u0442\u0438 \u0449\u043e\u0434\u043e AI-\u0430\u0441\u0438\u0441\u0442\u0435\u043d\u0442\u0430, Telegram-\u0431\u043e\u0442\u0430, CRM, \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0437\u0430\u0446\u0456\u0457 \u0430\u0431\u043e \u0441\u0430\u0439\u0442\u0443. \u0429\u043e \u0441\u0430\u043c\u0435 \u0445\u043e\u0447\u0435\u0442\u0435 \u0437\u0440\u043e\u0431\u0438\u0442\u0438?",
+            "\u041e\u043f\u0438\u0448\u0456\u0442\u044c \u0432\u0430\u0448\u0443 \u0437\u0430\u0434\u0430\u0447\u0443 \u043a\u0456\u043b\u044c\u043a\u043e\u043c\u0430 \u0441\u043b\u043e\u0432\u0430\u043c\u0438 — \u044f \u043f\u0456\u0434\u043a\u0430\u0436\u0443, \u044f\u043a\u0435 \u0440\u0456\u0448\u0435\u043d\u043d\u044f \u043c\u043e\u0436\u0435 \u043f\u0456\u0434\u0456\u0439\u0442\u0438.",
+            "\u0429\u043e\u0431 \u043f\u0456\u0434\u043a\u0430\u0437\u0430\u0442\u0438 \u0442\u043e\u0447\u043d\u0456\u0448\u0435, \u043d\u0430\u043f\u0438\u0448\u0456\u0442\u044c, \u0449\u043e \u0441\u0430\u043c\u0435 \u043c\u0430\u0454 \u0440\u043e\u0431\u0438\u0442\u0438 \u0440\u0456\u0448\u0435\u043d\u043d\u044f: \u043f\u0440\u0438\u0439\u043c\u0430\u0442\u0438 \u0437\u0430\u044f\u0432\u043a\u0438, \u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0443\u0432\u0430\u0442\u0438 \u043a\u043b\u0456\u0454\u043d\u0442\u0456\u0432 \u0447\u0438 \u043f\u0435\u0440\u0435\u0434\u0430\u0432\u0430\u0442\u0438 \u0434\u0430\u043d\u0456 \u0432 CRM?"
+        ],
+        ru: [
+            "\u041c\u043e\u0433\u0443 \u043f\u043e\u0434\u0441\u043a\u0430\u0437\u0430\u0442\u044c \u043f\u043e AI-\u0430\u0441\u0441\u0438\u0441\u0442\u0435\u043d\u0442\u0443, Telegram-\u0431\u043e\u0442\u0443, CRM, \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0437\u0430\u0446\u0438\u0438 \u0438\u043b\u0438 \u0441\u0430\u0439\u0442\u0443. \u0427\u0442\u043e \u0438\u043c\u0435\u043d\u043d\u043e \u0445\u043e\u0442\u0438\u0442\u0435 \u0441\u0434\u0435\u043b\u0430\u0442\u044c?",
+            "\u041e\u043f\u0438\u0448\u0438\u0442\u0435 \u0437\u0430\u0434\u0430\u0447\u0443 \u0432 \u0434\u0432\u0443\u0445-\u0442\u0440\u0451\u0445 \u0441\u043b\u043e\u0432\u0430\u0445 — \u044f \u043f\u043e\u0434\u0441\u043a\u0430\u0436\u0443, \u043a\u0430\u043a\u043e\u0435 \u0440\u0435\u0448\u0435\u043d\u0438\u0435 \u043c\u043e\u0436\u0435\u0442 \u043f\u043e\u0434\u043e\u0439\u0442\u0438.",
+            "\u0427\u0442\u043e\u0431\u044b \u043f\u043e\u0434\u0441\u043a\u0430\u0437\u0430\u0442\u044c \u0442\u043e\u0447\u043d\u0435\u0435, \u043d\u0430\u043f\u0438\u0448\u0438\u0442\u0435, \u0447\u0442\u043e \u0434\u043e\u043b\u0436\u043d\u043e \u0434\u0435\u043b\u0430\u0442\u044c \u0440\u0435\u0448\u0435\u043d\u0438\u0435: \u043f\u0440\u0438\u043d\u0438\u043c\u0430\u0442\u044c \u0437\u0430\u044f\u0432\u043a\u0438, \u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u043a\u043b\u0438\u0435\u043d\u0442\u043e\u0432 \u0438\u043b\u0438 \u043f\u0435\u0440\u0435\u0434\u0430\u0432\u0430\u0442\u044c \u0434\u0430\u043d\u043d\u044b\u0435 \u0432 CRM?"
+        ],
+        en: [
+            "I can help with an AI assistant, Telegram bot, CRM, automation, or website. What would you like to build?",
+            "Briefly describe your task, and I'll suggest which solution may fit.",
+            "To suggest the right solution, please describe what it should do: collect requests, consult customers, send data to CRM, or something else?"
+        ]
+    };
+    const options = replies[lang] || replies.uk;
+    const last = [...history].reverse().find((item) => item.role === "assistant")?.content || "";
+    return options.find((reply) => reply !== last) || options[0];
 }
 
 function buildExtractiveKnowledgeReply(lang, blocks) {
@@ -620,7 +648,7 @@ async function handleChat(req, res) {
     }
 
     sendJson(res, 200, {
-        reply: data.output_text || "Можу допомогти з AI-асистентом, сайтом, Telegram-ботом або CRM. Опишіть вашу задачу."
+        reply: data.output_text || buildEmptyAiReply(lang, cleanHistory)
     });
 }
 

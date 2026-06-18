@@ -1137,6 +1137,50 @@ function getLeadCopy() {
     };
     return copy[currentLang] || copy.uk;
 }
+
+function detectGreeting(text) {
+    const value = String(text || "").toLowerCase().replace(/[!?.,"'()]/g, " ").replace(/\s+/g, " ").trim();
+    return /^(hi|hello|good afternoon|good evening|\u043f\u0440\u0438\u0432\u0435\u0442|\u0437\u0434\u0440\u0430\u0432\u0441\u0442\u0432\u0443\u0439\u0442\u0435|\u0434\u043e\u0431\u0440\u044b\u0439 \u0434\u0435\u043d\u044c|\u0434\u043e\u0431\u0440\u044b\u0439 \u0432\u0435\u0447\u0435\u0440|\u0445\u0430\u0439|\u043f\u0440\u0438\u0432\u0456\u0442|\u0434\u043e\u0431\u0440\u0438\u0439 \u0434\u0435\u043d\u044c|\u0434\u043e\u0431\u0440\u0438\u0439 \u0432\u0435\u0447\u0456\u0440|\u0432\u0456\u0442\u0430\u044e)$/.test(value);
+}
+
+function getDialogueCopy() {
+    const copy = {
+        uk: {
+            greetingUnknown: "\u041f\u0440\u0438\u0432\u0456\u0442! \u042f AI-\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u043d\u0442 Sildram Studio. \u042f\u043a \u043c\u043e\u0436\u0443 \u0434\u043e \u0432\u0430\u0441 \u0437\u0432\u0435\u0440\u0442\u0430\u0442\u0438\u0441\u044f?",
+            greetingKnown: (name) => `\u041f\u0440\u0438\u0432\u0456\u0442, ${name}! \u0427\u0438\u043c \u043c\u043e\u0436\u0443 \u0434\u043e\u043f\u043e\u043c\u043e\u0433\u0442\u0438 \u0441\u044c\u043e\u0433\u043e\u0434\u043d\u0456?`,
+            nameKnown: (name) => `\u041f\u0440\u0438\u0454\u043c\u043d\u043e \u043f\u043e\u0437\u043d\u0430\u0439\u043e\u043c\u0438\u0442\u0438\u0441\u044f, ${name}! \u0427\u0438\u043c \u043c\u043e\u0436\u0443 \u0434\u043e\u043f\u043e\u043c\u043e\u0433\u0442\u0438: \u0441\u0430\u0439\u0442, Telegram-\u0431\u043e\u0442, AI-\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u043d\u0442, CRM \u0447\u0438 \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0437\u0430\u0446\u0456\u044f?`,
+            clarify: "\u0429\u043e\u0431 \u043f\u0456\u0434\u043a\u0430\u0437\u0430\u0442\u0438 \u0442\u043e\u0447\u043d\u0456\u0448\u0435, \u043d\u0430\u043f\u0438\u0448\u0456\u0442\u044c, \u0431\u0443\u0434\u044c \u043b\u0430\u0441\u043a\u0430, \u0449\u043e \u0441\u0430\u043c\u0435 \u043c\u0430\u0454 \u0440\u043e\u0431\u0438\u0442\u0438 \u0440\u0456\u0448\u0435\u043d\u043d\u044f: \u043f\u0440\u0438\u0439\u043c\u0430\u0442\u0438 \u0437\u0430\u044f\u0432\u043a\u0438, \u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0443\u0432\u0430\u0442\u0438 \u043a\u043b\u0456\u0454\u043d\u0442\u0456\u0432, \u043f\u0435\u0440\u0435\u0434\u0430\u0432\u0430\u0442\u0438 \u0434\u0430\u043d\u0456 \u0432 CRM \u0447\u0438 \u0449\u043e\u0441\u044c \u0456\u043d\u0448\u0435?",
+            fallback: [
+                "\u041c\u043e\u0436\u0443 \u043f\u0456\u0434\u043a\u0430\u0437\u0430\u0442\u0438 \u0449\u043e\u0434\u043e AI-\u0430\u0441\u0438\u0441\u0442\u0435\u043d\u0442\u0430, Telegram-\u0431\u043e\u0442\u0430, CRM, \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0437\u0430\u0446\u0456\u0457 \u0430\u0431\u043e \u0441\u0430\u0439\u0442\u0443. \u0429\u043e \u0441\u0430\u043c\u0435 \u0445\u043e\u0447\u0435\u0442\u0435 \u0437\u0440\u043e\u0431\u0438\u0442\u0438?",
+                "\u041e\u043f\u0438\u0448\u0456\u0442\u044c \u0432\u0430\u0448\u0443 \u0437\u0430\u0434\u0430\u0447\u0443 \u043a\u0456\u043b\u044c\u043a\u043e\u043c\u0430 \u0441\u043b\u043e\u0432\u0430\u043c\u0438 — \u044f \u043f\u0456\u0434\u043a\u0430\u0436\u0443, \u044f\u043a\u0435 \u0440\u0456\u0448\u0435\u043d\u043d\u044f \u043c\u043e\u0436\u0435 \u043f\u0456\u0434\u0456\u0439\u0442\u0438.",
+                "\u042f\u043a\u0449\u043e \u0445\u043e\u0447\u0435\u0442\u0435, \u043c\u043e\u0436\u0435\u043c\u043e \u043f\u0456\u0434\u0456\u0431\u0440\u0430\u0442\u0438 \u0440\u0456\u0448\u0435\u043d\u043d\u044f \u043f\u0456\u0434 \u0432\u0430\u0448 \u0431\u0456\u0437\u043d\u0435\u0441: \u0441\u0430\u0439\u0442, \u0431\u043e\u0442, AI-\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u043d\u0442 \u0430\u0431\u043e \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0437\u0430\u0446\u0456\u044f."
+            ]
+        },
+        ru: {
+            greetingUnknown: "\u041f\u0440\u0438\u0432\u0435\u0442! \u042f AI-\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u043d\u0442 Sildram Studio. \u041a\u0430\u043a \u043c\u043e\u0433\u0443 \u043a \u0432\u0430\u043c \u043e\u0431\u0440\u0430\u0449\u0430\u0442\u044c\u0441\u044f?",
+            greetingKnown: (name) => `\u041f\u0440\u0438\u0432\u0435\u0442, ${name}! \u0427\u0435\u043c \u043c\u043e\u0433\u0443 \u043f\u043e\u043c\u043e\u0447\u044c \u0441\u0435\u0433\u043e\u0434\u043d\u044f?`,
+            nameKnown: (name) => `\u041f\u0440\u0438\u044f\u0442\u043d\u043e \u043f\u043e\u0437\u043d\u0430\u043a\u043e\u043c\u0438\u0442\u044c\u0441\u044f, ${name}! \u0427\u0435\u043c \u043c\u043e\u0433\u0443 \u043f\u043e\u043c\u043e\u0447\u044c: \u0441\u0430\u0439\u0442, Telegram-\u0431\u043e\u0442, AI-\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u043d\u0442, CRM \u0438\u043b\u0438 \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0437\u0430\u0446\u0438\u044f?`,
+            clarify: "\u0427\u0442\u043e\u0431\u044b \u043f\u043e\u0434\u0441\u043a\u0430\u0437\u0430\u0442\u044c \u0442\u043e\u0447\u043d\u0435\u0435, \u043d\u0430\u043f\u0438\u0448\u0438\u0442\u0435, \u043f\u043e\u0436\u0430\u043b\u0443\u0439\u0441\u0442\u0430, \u0447\u0442\u043e \u0438\u043c\u0435\u043d\u043d\u043e \u0434\u043e\u043b\u0436\u043d\u043e \u0434\u0435\u043b\u0430\u0442\u044c \u0440\u0435\u0448\u0435\u043d\u0438\u0435: \u043f\u0440\u0438\u043d\u0438\u043c\u0430\u0442\u044c \u0437\u0430\u044f\u0432\u043a\u0438, \u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u043a\u043b\u0438\u0435\u043d\u0442\u043e\u0432, \u043f\u0435\u0440\u0435\u0434\u0430\u0432\u0430\u0442\u044c \u0434\u0430\u043d\u043d\u044b\u0435 \u0432 CRM \u0438\u043b\u0438 \u0447\u0442\u043e-\u0442\u043e \u0434\u0440\u0443\u0433\u043e\u0435?",
+            fallback: [
+                "\u041c\u043e\u0433\u0443 \u043f\u043e\u0434\u0441\u043a\u0430\u0437\u0430\u0442\u044c \u043f\u043e AI-\u0430\u0441\u0441\u0438\u0441\u0442\u0435\u043d\u0442\u0443, Telegram-\u0431\u043e\u0442\u0443, CRM, \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0437\u0430\u0446\u0438\u0438 \u0438\u043b\u0438 \u0441\u0430\u0439\u0442\u0443. \u0427\u0442\u043e \u0438\u043c\u0435\u043d\u043d\u043e \u0445\u043e\u0442\u0438\u0442\u0435 \u0441\u0434\u0435\u043b\u0430\u0442\u044c?",
+                "\u041e\u043f\u0438\u0448\u0438\u0442\u0435 \u0437\u0430\u0434\u0430\u0447\u0443 \u0432 \u0434\u0432\u0443\u0445-\u0442\u0440\u0451\u0445 \u0441\u043b\u043e\u0432\u0430\u0445 — \u044f \u043f\u043e\u0434\u0441\u043a\u0430\u0436\u0443, \u043a\u0430\u043a\u043e\u0435 \u0440\u0435\u0448\u0435\u043d\u0438\u0435 \u043c\u043e\u0436\u0435\u0442 \u043f\u043e\u0434\u043e\u0439\u0442\u0438.",
+                "\u041c\u043e\u0436\u0435\u043c \u043f\u043e\u0434\u043e\u0431\u0440\u0430\u0442\u044c \u0440\u0435\u0448\u0435\u043d\u0438\u0435 \u043f\u043e\u0434 \u0432\u0430\u0448 \u0431\u0438\u0437\u043d\u0435\u0441: \u0441\u0430\u0439\u0442, \u0431\u043e\u0442, AI-\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u043d\u0442 \u0438\u043b\u0438 \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0437\u0430\u0446\u0438\u044f."
+            ]
+        },
+        en: {
+            greetingUnknown: "Hi! I'm the AI consultant of Sildram Studio. What should I call you?",
+            greetingKnown: (name) => `Hi, ${name}! How can I help you today?`,
+            nameKnown: (name) => `Nice to meet you, ${name}! How can I help: a website, Telegram bot, AI consultant, CRM, or automation?`,
+            clarify: "To suggest the right solution, please describe what it should do: collect requests, consult customers, send data to CRM, or something else?",
+            fallback: [
+                "I can help with an AI assistant, Telegram bot, CRM, automation, or website. What would you like to build?",
+                "Briefly describe your task, and I'll suggest which solution may fit.",
+                "We can choose a solution for your business: website, bot, AI consultant, or automation."
+            ]
+        }
+    };
+    return copy[currentLang] || copy.uk;
+}
 function detectVisitorName(text) {
     let value = String(text || "").trim();
     const namedMatch = value.match(/(?:\u043c\u0435\u043d\u044f\s+\u0437\u043e\u0432\u0443\u0442|\u043c\u043e[\u0451\u0435]\s+\u0438\u043c\u044f|my name is|\u043c\u0435\u043d\u0435\s+\u0437\u0432\u0430\u0442\u0438)\s+([A-Za-z\u0400-\u04FF'-]{2,24})/i);
@@ -1234,6 +1278,41 @@ function createChatWidget() {
         writeChatHistory(history);
     };
 
+    const lastAssistantMessage = () => {
+        const item = [...history].reverse().find((entry) => entry.role === "assistant");
+        return item ? item.content : "";
+    };
+
+    const normalizeReply = (text) => String(text || "").replace(/\s+/g, " ").trim().toLowerCase();
+
+    const isGenericFallbackReply = (text) => {
+        const value = normalizeReply(text);
+        return value.includes("можу допомогти з ai")
+            || value.includes("могу помочь с ai")
+            || value.includes("можу підказати")
+            || value.includes("могу подсказать")
+            || value.includes("i can help with an ai")
+            || value.includes("briefly describe your task");
+    };
+
+    const chooseFallbackReply = () => {
+        const copy = getDialogueCopy();
+        const options = copy.fallback;
+        const last = normalizeReply(lastAssistantMessage());
+        return options.find((option) => normalizeReply(option) !== last) || copy.clarify;
+    };
+
+    const polishAssistantReply = (reply) => {
+        const last = normalizeReply(lastAssistantMessage());
+        const current = normalizeReply(reply);
+        if (!current) return chooseFallbackReply();
+        if (current === last || (isGenericFallbackReply(reply) && isGenericFallbackReply(lastAssistantMessage()))) {
+            return getDialogueCopy().clarify;
+        }
+        if (isGenericFallbackReply(reply)) return chooseFallbackReply();
+        return reply;
+    };
+
     const apiErrorReply = () => translateValue(
         "AI-консультант тимчасово недоступний. Спробуйте ще раз трохи пізніше або скористайтеся формою на сторінці «Контакти»."
     );
@@ -1297,6 +1376,15 @@ function createChatWidget() {
         writeChatSessionValue(CHAT_SESSION_KEYS.leadTask, leadTask);
     };
 
+    const leadContactRequest = () => {
+        if (visitorInterest === "telegram") {
+            if (currentLang === "en") return "Got it, you need a Telegram bot. So the Sildram Studio team can contact you and suggest a solution, please leave a convenient contact: Telegram, phone, or email.";
+            if (currentLang === "ru") return "\u041f\u043e\u043d\u044f\u043b, \u0432\u0430\u043c \u043d\u0443\u0436\u0435\u043d Telegram-\u0431\u043e\u0442. \u0427\u0442\u043e\u0431\u044b \u043a\u043e\u043c\u0430\u043d\u0434\u0430 Sildram Studio \u043c\u043e\u0433\u043b\u0430 \u0441\u0432\u044f\u0437\u0430\u0442\u044c\u0441\u044f \u0441 \u0432\u0430\u043c\u0438 \u0438 \u043f\u0440\u0435\u0434\u043b\u043e\u0436\u0438\u0442\u044c \u0440\u0435\u0448\u0435\u043d\u0438\u0435, \u043e\u0441\u0442\u0430\u0432\u044c\u0442\u0435, \u043f\u043e\u0436\u0430\u043b\u0443\u0439\u0441\u0442\u0430, \u0443\u0434\u043e\u0431\u043d\u044b\u0439 \u043a\u043e\u043d\u0442\u0430\u043a\u0442: Telegram, \u0442\u0435\u043b\u0435\u0444\u043e\u043d \u0438\u043b\u0438 email.";
+            return "\u0417\u0440\u043e\u0437\u0443\u043c\u0456\u0432, \u0432\u0430\u043c \u043f\u043e\u0442\u0440\u0456\u0431\u0435\u043d Telegram-\u0431\u043e\u0442. \u0429\u043e\u0431 \u043a\u043e\u043c\u0430\u043d\u0434\u0430 Sildram Studio \u043c\u043e\u0433\u043b\u0430 \u0437\u0432'\u044f\u0437\u0430\u0442\u0438\u0441\u044f \u0437 \u0432\u0430\u043c\u0438 \u0456 \u0437\u0430\u043f\u0440\u043e\u043f\u043e\u043d\u0443\u0432\u0430\u0442\u0438 \u0440\u0456\u0448\u0435\u043d\u043d\u044f, \u0437\u0430\u043b\u0438\u0448\u0442\u0435, \u0431\u0443\u0434\u044c \u043b\u0430\u0441\u043a\u0430, \u0437\u0440\u0443\u0447\u043d\u0438\u0439 \u043a\u043e\u043d\u0442\u0430\u043a\u0442: Telegram, \u0442\u0435\u043b\u0435\u0444\u043e\u043d \u0430\u0431\u043e email.";
+        }
+        return getLeadCopy().contact(visitorName);
+    };
+
     const submitLead = async () => {
         const response = await fetch("/api/lead", {
             method: "POST",
@@ -1354,7 +1442,7 @@ function createChatWidget() {
 
             if (!visitorContact) {
                 setLeadStage("need_contact");
-                return copy.contact(visitorName);
+                return leadContactRequest();
             }
 
             setLeadStage("need_task");
@@ -1384,7 +1472,7 @@ function createChatWidget() {
     const getOnboardingReply = (memory) => {
         const copy = getChatCopy();
         if (memory.detectedName && !memory.detectedInterest) {
-            return copy.nameOnly(memory.detectedName);
+            return getDialogueCopy().nameKnown(memory.detectedName);
         }
 
         if (memory.detectedInterest && !visitorName && !memory.detectedName) {
@@ -1399,6 +1487,15 @@ function createChatWidget() {
         if (!value) return;
         addMessage(value, "user");
         rememberMessage("user", value);
+
+        if (detectGreeting(value)) {
+            const reply = visitorName
+                ? getDialogueCopy().greetingKnown(visitorName)
+                : getDialogueCopy().greetingUnknown;
+            addMessage(reply, "bot");
+            rememberMessage("assistant", reply);
+            return;
+        }
 
         const memory = applyOnboardingMemory(value);
         const leadReply = await handleLeadFlow(value, memory);
@@ -1423,8 +1520,9 @@ function createChatWidget() {
 
         const reply = await getAssistantReply(value);
         typing.remove();
-        addMessage(reply, "bot");
-        rememberMessage("assistant", reply);
+        const polishedReply = polishAssistantReply(reply);
+        addMessage(polishedReply, "bot");
+        rememberMessage("assistant", polishedReply);
 
     };
 
