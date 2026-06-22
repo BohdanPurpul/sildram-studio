@@ -243,6 +243,47 @@ function detectCommercialIntent(message) {
     return "";
 }
 
+function classifyBusinessQuestion(message) {
+    if (detectOffTopic(message)) return "OFF_TOPIC";
+
+    const normalized = normalizeSearchText(message);
+    const terms = normalized.split(/\s+/).filter(Boolean);
+    const hasService = hasBusinessServiceSignal(normalized);
+    const hasInfoIntent = /(^|\s)(what|how|why|when|where|difference|versus|vs|explain|tell)(\s|$)/i.test(normalized)
+        || /(\u0449\u043e|\u0447\u0442\u043e).{0,30}(\u0442\u0430\u043a\u0435|\u044d\u0442\u043e)/i.test(normalized)
+        || /(\u044f\u043a|\u043a\u0430\u043a).{0,30}(\u043f\u0440\u0430\u0446\u044e|\u0440\u0430\u0431\u043e\u0442)/i.test(normalized)
+        || /(\u043d\u0430\u0432\u0456\u0449\u043e|\u0437\u0430\u0447\u0435\u043c|\u0447\u0435\u043c|\u0447\u0438\u043c|\u0432\u0456\u0434\u0440\u0456\u0437\u043d|\u043e\u0442\u043b\u0438\u0447)/i.test(normalized);
+
+    if (hasService && hasInfoIntent) return "INFORMATIONAL";
+    if (hasService && terms.length <= 2 && !detectCommercialIntent(message)) return "CLARIFICATION";
+    if (detectCommercialIntent(message)) return "COMMERCIAL";
+
+    return hasService ? "INFORMATIONAL" : "OFF_TOPIC";
+}
+
+function hasBusinessServiceSignal(normalized) {
+    return /(sildram|crm|telegram|bot|website|site|landing|automation|integration|excel|ai|assistant|consultant|\u0446\u0440\u043c|\u0441\u0440\u043c|\u0442\u0435\u043b\u0435\u0433\u0440\u0430\u043c|\u0431\u043e\u0442|\u0441\u0430\u0439\u0442|\u043b\u0435\u043d\u0434\u0438\u043d\u0433|\u0430\u0432\u0442\u043e\u043c\u0430\u0442|\u0456\u043d\u0442\u0435\u0433\u0440\u0430\u0446|\u0438\u043d\u0442\u0435\u0433\u0440\u0430\u0446|\u0435\u043a\u0441\u0435\u043b|\u044d\u043a\u0441\u0435\u043b|\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442|\u0430\u0441\u0438\u0441\u0442|\u0430\u0441\u0441\u0438\u0441\u0442)/i.test(normalized);
+}
+
+function detectBusinessTopic(message, blocks = []) {
+    const query = normalizeSearchText(message);
+    const blockText = normalizeSearchText(blocks.map((block) => `${block.title || ""} ${block.content || ""}`).join(" "));
+    const source = `${query} ${blockText}`;
+    const asksDifference = /(\u0432\u0456\u0434\u0440\u0456\u0437\u043d|\u043e\u0442\u043b\u0438\u0447|difference|versus| vs |excel|\u0435\u043a\u0441\u0435\u043b|\u044d\u043a\u0441\u0435\u043b)/i.test(query);
+
+    if (asksDifference && /(telegram|\u0442\u0435\u043b\u0435\u0433\u0440\u0430\u043c|\u0431\u043e\u0442)/i.test(query)) return "websiteVsBot";
+    if (asksDifference && /(excel|\u0435\u043a\u0441\u0435\u043b|\u044d\u043a\u0441\u0435\u043b)/i.test(query)) return "crmVsExcel";
+    if (/(crm|\u0446\u0440\u043c|\u0441\u0440\u043c)/i.test(query)) return "crm";
+    if (/(telegram|\u0442\u0435\u043b\u0435\u0433\u0440\u0430\u043c|\u0431\u043e\u0442|bot)/i.test(query)) return "telegram";
+    if (/(ai|assistant|consultant|\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442|\u0430\u0441\u0438\u0441\u0442|\u0430\u0441\u0441\u0438\u0441\u0442)/i.test(query)) return "consultant";
+    if (/(\u0430\u0432\u0442\u043e\u043c\u0430\u0442|automation)/i.test(query)) return "automation";
+    if (/(website|site|\u0441\u0430\u0439\u0442|landing|\u043b\u0435\u043d\u0434\u0438\u043d\u0433)/i.test(query)) return "website";
+    if (/(crm|\u0446\u0440\u043c|\u0441\u0440\u043c)/i.test(source)) return "crm";
+    if (/(telegram|\u0442\u0435\u043b\u0435\u0433\u0440\u0430\u043c|\u0431\u043e\u0442|bot)/i.test(source)) return "telegram";
+    if (/(ai|assistant|consultant|\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442|\u0430\u0441\u0438\u0441\u0442|\u0430\u0441\u0441\u0438\u0441\u0442)/i.test(source)) return "consultant";
+    return "automation";
+}
+
 function detectPrivacyRequest(message) {
     const normalized = normalizeServiceTerms(message).toLowerCase();
     const privacyActions = [
@@ -349,6 +390,108 @@ function buildPriceQualificationReply(lang, topics) {
     const prompt = lang === "en" ? "Please also tell us:" : lang === "ru" ? "Также подскажите:" : "Також підкажіть:";
 
     return `${locale.price}\n\n${prompt}\n\n${items}`;
+}
+
+function buildInformationalConsultantReply(lang, message, blocks) {
+    const topic = detectBusinessTopic(message, blocks);
+    const replies = {
+        uk: {
+            crm: "CRM - це система для роботи з клієнтами та заявками.\n\nВона допомагає зберігати контакти, бачити статуси звернень, контролювати роботу менеджерів і не губити заявки між сайтом, Telegram, WhatsApp або таблицями.\n\nНаприклад, клієнт залишає заявку на сайті, а CRM автоматично створює картку клієнта, додає опис звернення і показує менеджеру наступний крок.\n\nХочете, я покажу простий приклад впровадження CRM для малого бізнесу?",
+            telegram: "Telegram-бот - це помічник у Telegram, який може приймати звернення, ставити уточнюючі питання, збирати контакти і передавати готову заявку команді.\n\nНаприклад, клієнт пише боту, бот уточнює послугу, бюджет або зручний контакт, а потім надсилає менеджеру вже структуровану інформацію.\n\nХочете, я покажу приклад сценарію Telegram-бота для заявок?",
+            consultant: "AI-консультант - це помічник на сайті, який відповідає на часті питання, пояснює послуги і допомагає відвідувачу зробити наступний крок.\n\nНаприклад, людина не розуміє, що їй потрібно: сайт, бот чи CRM. Консультант ставить кілька уточнюючих питань і підказує найбільш логічний варіант.\n\nХочете, я покажу приклад, як AI-консультант може працювати на сайті?",
+            websiteVsBot: "Сайт і Telegram-бот виконують різні ролі.\n\nСайт пояснює, хто ви, які послуги пропонуєте, викликає довіру і приймає заявки. Telegram-бот зручний для швидкого діалогу, уточнення деталей і передачі інформації менеджеру або в CRM.\n\nНаприклад, сайт приводить клієнта до заявки, а бот допомагає швидко зібрати деталі після першого звернення.\n\nХочете, я покажу, як сайт, бот і CRM можуть працювати разом?",
+            crmVsExcel: "Excel або таблиці підходять для простого обліку, але їх складно використовувати як систему продажів.\n\nCRM допомагає бачити клієнтів, статуси, відповідальних менеджерів, історію звернень і наступні дії. Це зручніше, коли заявок стає більше або з ними працює кілька людей.\n\nНаприклад, у таблиці заявку легко пропустити, а CRM може показати статус і нагадати менеджеру про наступний крок.\n\nХочете, я поясню, коли бізнесу вже час переходити з Excel на CRM?",
+            automation: "Автоматизація - це коли повторювані дії виконує система, а не людина вручну.\n\nЦе може бути передача заявки з сайту в Telegram, створення картки в CRM, повідомлення менеджеру або відповідь на часті питання через AI-консультанта.\n\nНаприклад, клієнт залишає форму, а команда одразу отримує повідомлення з усіма даними.\n\nХочете, я покажу простий приклад автоматизації заявок?"
+        },
+        ru: {
+            crm: "CRM - это система для работы с клиентами и обращениями.\n\nОна помогает хранить контакты, видеть статусы заявок, контролировать работу менеджеров и не терять обращения между сайтом, Telegram, WhatsApp или таблицами.\n\nНапример, клиент оставляет заявку на сайте, а CRM автоматически создаёт карточку клиента, добавляет описание обращения и показывает менеджеру следующий шаг.\n\nХотите, я покажу простой пример внедрения CRM для малого бизнеса?",
+            telegram: "Telegram-бот - это помощник в Telegram, который может принимать обращения, задавать уточняющие вопросы, собирать контакты и передавать готовую заявку команде.\n\nНапример, клиент пишет боту, бот уточняет услугу, задачу и удобный контакт, а затем отправляет менеджеру уже структурированную информацию.\n\nХотите, я покажу пример сценария Telegram-бота для заявок?",
+            consultant: "AI-консультант - это помощник на сайте, который отвечает на частые вопросы, объясняет услуги и помогает посетителю сделать следующий шаг.\n\nНапример, человек не понимает, что ему нужно: сайт, бот или CRM. Консультант задаёт несколько уточняющих вопросов и подсказывает наиболее логичный вариант.\n\nХотите, я покажу пример, как AI-консультант может работать на сайте?",
+            websiteVsBot: "Сайт и Telegram-бот выполняют разные роли.\n\nСайт объясняет, кто вы, какие услуги предлагаете, вызывает доверие и принимает заявки. Telegram-бот удобен для быстрого диалога, уточнения деталей и передачи информации менеджеру или в CRM.\n\nНапример, сайт приводит клиента к заявке, а бот помогает быстро собрать детали после первого обращения.\n\nХотите, я покажу, как сайт, бот и CRM могут работать вместе?",
+            crmVsExcel: "Excel или таблицы подходят для простого учёта, но их сложно использовать как систему продаж.\n\nCRM помогает видеть клиентов, статусы, ответственных менеджеров, историю обращений и следующие действия. Это удобнее, когда заявок становится больше или с ними работает несколько человек.\n\nНапример, в таблице заявку легко пропустить, а CRM может показать статус и напомнить менеджеру о следующем шаге.\n\nХотите, я объясню, когда бизнесу уже пора переходить с Excel на CRM?",
+            automation: "Автоматизация - это когда повторяющиеся действия выполняет система, а не человек вручную.\n\nЭто может быть передача заявки с сайта в Telegram, создание карточки в CRM, уведомление менеджера или ответ на частые вопросы через AI-консультанта.\n\nНапример, клиент оставляет форму, а команда сразу получает сообщение со всеми данными.\n\nХотите, я покажу простой пример автоматизации заявок?"
+        },
+        en: {
+            crm: "CRM is a system for managing clients and requests.\n\nIt helps store contacts, track request statuses, control manager work, and avoid losing inquiries between a website, Telegram, WhatsApp, or spreadsheets.\n\nFor example, a client submits a website form, and CRM automatically creates a client card, adds the request details, and shows the manager the next step.\n\nWould you like me to show a simple CRM implementation example for a small business?",
+            telegram: "A Telegram bot is an assistant inside Telegram that can receive requests, ask clarifying questions, collect contacts, and pass a prepared request to the team.\n\nFor example, a client writes to the bot, the bot clarifies the service, task, and contact method, then sends structured information to the manager.\n\nWould you like me to show an example Telegram bot scenario for requests?",
+            consultant: "An AI consultant is a website assistant that answers common questions, explains services, and helps visitors choose the next step.\n\nFor example, a visitor may not know whether they need a website, bot, or CRM. The consultant asks a few clarifying questions and suggests the most logical option.\n\nWould you like me to show how an AI consultant can work on a website?",
+            websiteVsBot: "A website and a Telegram bot play different roles.\n\nThe website explains who you are, what services you offer, builds trust, and receives requests. The Telegram bot is useful for quick conversation, clarifying details, and passing information to a manager or CRM.\n\nFor example, the website brings the client to the request, and the bot helps collect details after the first message.\n\nWould you like me to show how a website, bot, and CRM can work together?",
+            crmVsExcel: "Excel or spreadsheets are useful for simple tracking, but they are hard to use as a sales system.\n\nCRM helps track clients, statuses, responsible managers, request history, and next actions. It becomes more useful when there are more requests or several people work with them.\n\nFor example, a request can be missed in a spreadsheet, while CRM can show its status and remind the manager about the next step.\n\nWould you like me to explain when a business should move from Excel to CRM?",
+            automation: "Automation means repetitive actions are handled by a system instead of being done manually.\n\nThis can include sending website requests to Telegram, creating CRM cards, notifying a manager, or answering common questions through an AI consultant.\n\nFor example, a client submits a form, and the team immediately receives a message with all the details.\n\nWould you like me to show a simple request automation example?"
+        }
+    };
+
+    const locale = replies[lang] || replies.uk;
+    return locale[topic] || locale.automation;
+}
+
+function buildCommercialConsultantReply(lang, message, blocks) {
+    const topic = detectBusinessTopic(message, blocks);
+    if (detectCommercialIntent(message) === "price") {
+        const replies = {
+            uk: "\u0412\u0430\u0440\u0442\u0456\u0441\u0442\u044c \u0437\u0430\u043b\u0435\u0436\u0438\u0442\u044c \u0432\u0456\u0434 \u0444\u0443\u043d\u043a\u0446\u0456\u0439, \u0456\u043d\u0442\u0435\u0433\u0440\u0430\u0446\u0456\u0439 \u0442\u0430 \u0441\u043a\u043b\u0430\u0434\u043d\u043e\u0441\u0442\u0456 \u0441\u0446\u0435\u043d\u0430\u0440\u0456\u044e.\n\n\u0429\u043e\u0431 \u043e\u0446\u0456\u043d\u0438\u0442\u0438 \u0440\u0456\u0448\u0435\u043d\u043d\u044f \u043d\u043e\u0440\u043c\u0430\u043b\u044c\u043d\u043e, \u0441\u043f\u043e\u0447\u0430\u0442\u043a\u0443 \u0442\u0440\u0435\u0431\u0430 \u0437\u0440\u043e\u0437\u0443\u043c\u0456\u0442\u0438 \u0437\u0430\u0434\u0430\u0447\u0443.\n\n\u041f\u0456\u0434\u043a\u0430\u0436\u0456\u0442\u044c, \u0431\u0443\u0434\u044c \u043b\u0430\u0441\u043a\u0430:\n\u2022 \u044f\u043a\u0438\u0439 \u0443 \u0432\u0430\u0441 \u0431\u0456\u0437\u043d\u0435\u0441;\n\u2022 \u0449\u043e \u043c\u0430\u0454 \u0440\u043e\u0431\u0438\u0442\u0438 \u0440\u0456\u0448\u0435\u043d\u043d\u044f;\n\u2022 \u0447\u0438 \u043f\u043e\u0442\u0440\u0456\u0431\u043d\u0456 CRM, Telegram, \u0441\u0430\u0439\u0442 \u0430\u0431\u043e AI-\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u043d\u0442.",
+            ru: "\u0421\u0442\u043e\u0438\u043c\u043e\u0441\u0442\u044c \u0437\u0430\u0432\u0438\u0441\u0438\u0442 \u043e\u0442 \u0444\u0443\u043d\u043a\u0446\u0438\u0439, \u0438\u043d\u0442\u0435\u0433\u0440\u0430\u0446\u0438\u0439 \u0438 \u0441\u043b\u043e\u0436\u043d\u043e\u0441\u0442\u0438 \u0441\u0446\u0435\u043d\u0430\u0440\u0438\u044f.\n\n\u0427\u0442\u043e\u0431\u044b \u043e\u0446\u0435\u043d\u0438\u0442\u044c \u0440\u0435\u0448\u0435\u043d\u0438\u0435 \u043d\u043e\u0440\u043c\u0430\u043b\u044c\u043d\u043e, \u0441\u043d\u0430\u0447\u0430\u043b\u0430 \u043d\u0443\u0436\u043d\u043e \u043f\u043e\u043d\u044f\u0442\u044c \u0437\u0430\u0434\u0430\u0447\u0443.\n\n\u041f\u043e\u0434\u0441\u043a\u0430\u0436\u0438\u0442\u0435, \u043f\u043e\u0436\u0430\u043b\u0443\u0439\u0441\u0442\u0430:\n\u2022 \u043a\u0430\u043a\u043e\u0439 \u0443 \u0432\u0430\u0441 \u0431\u0438\u0437\u043d\u0435\u0441;\n\u2022 \u0447\u0442\u043e \u0434\u043e\u043b\u0436\u043d\u043e \u0434\u0435\u043b\u0430\u0442\u044c \u0440\u0435\u0448\u0435\u043d\u0438\u0435;\n\u2022 \u043d\u0443\u0436\u043d\u044b \u043b\u0438 CRM, Telegram, \u0441\u0430\u0439\u0442 \u0438\u043b\u0438 AI-\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u043d\u0442.",
+            en: "The cost depends on the required features, integrations, and scenario complexity.\n\nTo estimate the solution properly, we first need to understand the task.\n\nPlease tell me:\n• what kind of business this is for;\n• what the solution should do;\n• whether CRM, Telegram, a website, or an AI consultant is needed."
+        };
+        return replies[lang] || replies.uk;
+    }
+
+    const replies = {
+        uk: {
+            telegram: "Так, Telegram-бот може бути хорошим рішенням для заявок і консультацій.\n\nСпочатку важливо зрозуміти, що саме він має робити: приймати звернення, ставити уточнюючі питання, передавати дані менеджеру, інтегруватися з CRM або повідомляти команду.\n\nПідкажіть, будь ласка:\n• для якого бізнесу потрібен бот;\n• які питання він має ставити клієнту;\n• куди передавати готову заявку.",
+            crm: "Так, CRM можна впровадити або підключити до сайту, Telegram-бота чи форми заявок.\n\nЩоб підібрати правильний варіант, спочатку треба зрозуміти процес: звідки зараз приходять заявки, хто їх обробляє і що часто губиться.\n\nПідкажіть, будь ласка:\n• який у вас бізнес;\n• чи є вже CRM;\n• звідки зараз приходять заявки.",
+            consultant: "Так, AI-консультанта можна додати на сайт, щоб він відповідав на часті питання і допомагав відвідувачу дійти до заявки.\n\nСпочатку треба визначити, які послуги він має пояснювати, які питання ставити і куди передавати звернення.\n\nПідкажіть, будь ласка:\n• на якому сайті він має працювати;\n• які послуги потрібно пояснювати;\n• чи треба передавати заявки в Telegram або CRM.",
+            default: "Так, можемо обговорити таке рішення.\n\nСпочатку краще коротко описати задачу, щоб не додавати зайві функції і підібрати простий перший варіант.\n\nПідкажіть, будь ласка:\n• який у вас бізнес або проєкт;\n• що саме потрібно автоматизувати;\n• де зараз з'являються заявки."
+        },
+        ru: {
+            telegram: "Да, Telegram-бот может быть хорошим решением для заявок и консультаций.\n\nСначала важно понять, что именно он должен делать: принимать обращения, задавать уточняющие вопросы, передавать данные менеджеру, интегрироваться с CRM или уведомлять команду.\n\nПодскажите, пожалуйста:\n• для какого бизнеса нужен бот;\n• какие вопросы он должен задавать клиенту;\n• куда передавать готовую заявку.",
+            crm: "Да, CRM можно внедрить или подключить к сайту, Telegram-боту или форме заявок.\n\nЧтобы подобрать правильный вариант, сначала нужно понять процесс: откуда сейчас приходят обращения, кто их обрабатывает и что чаще всего теряется.\n\nПодскажите, пожалуйста:\n• какой у вас бизнес;\n• есть ли уже CRM;\n• откуда сейчас приходят заявки.",
+            consultant: "Да, AI-консультанта можно добавить на сайт, чтобы он отвечал на частые вопросы и помогал посетителю дойти до заявки.\n\nСначала нужно определить, какие услуги он должен объяснять, какие вопросы задавать и куда передавать обращение.\n\nПодскажите, пожалуйста:\n• на каком сайте он должен работать;\n• какие услуги нужно объяснять;\n• нужно ли передавать заявки в Telegram или CRM.",
+            default: "Да, можем обсудить такое решение.\n\nСначала лучше коротко описать задачу, чтобы не добавлять лишние функции и подобрать простой первый вариант.\n\nПодскажите, пожалуйста:\n• какой у вас бизнес или проект;\n• что именно нужно автоматизировать;\n• где сейчас появляются заявки."
+        },
+        en: {
+            telegram: "Yes, a Telegram bot can be a good solution for requests and consultations.\n\nFirst, it is important to understand what it should do: receive requests, ask clarifying questions, pass data to a manager, integrate with CRM, or notify the team.\n\nPlease tell me:\n• what business the bot is for;\n• what questions it should ask the client;\n• where the prepared request should be sent.",
+            crm: "Yes, CRM can be implemented or connected to a website, Telegram bot, or request form.\n\nTo choose the right option, we first need to understand the process: where requests come from now, who handles them, and what usually gets lost.\n\nPlease tell me:\n• what kind of business you have;\n• whether you already use CRM;\n• where requests come from now.",
+            consultant: "Yes, an AI consultant can be added to a website to answer common questions and guide visitors toward a request.\n\nFirst, we need to define which services it should explain, what questions it should ask, and where requests should be sent.\n\nPlease tell me:\n• which website it should work on;\n• what services it should explain;\n• whether requests should go to Telegram or CRM.",
+            default: "Yes, we can discuss this solution.\n\nFirst, it is better to briefly describe the task so we can avoid unnecessary features and choose a simple first version.\n\nPlease tell me:\n• what business or project this is for;\n• what exactly should be automated;\n• where requests appear now."
+        }
+    };
+    const locale = replies[lang] || replies.uk;
+    return locale[topic] || locale.default;
+}
+
+function buildBusinessClarificationReply(lang, message) {
+    const topic = detectBusinessTopic(message, []);
+    const labels = {
+        uk: {
+            crm: "CRM",
+            telegram: "Telegram-бот",
+            consultant: "AI-консультант",
+            website: "сайт",
+            automation: "автоматизація"
+        },
+        ru: {
+            crm: "CRM",
+            telegram: "Telegram-бот",
+            consultant: "AI-консультант",
+            website: "сайт",
+            automation: "автоматизация"
+        },
+        en: {
+            crm: "CRM",
+            telegram: "Telegram bot",
+            consultant: "AI consultant",
+            website: "website",
+            automation: "automation"
+        }
+    };
+    const label = (labels[lang] || labels.uk)[topic] || (labels[lang] || labels.uk).automation;
+    const replies = {
+        uk: `Підкажіть, вас цікавить:\n\n• що таке ${label};\n• як впровадити ${label};\n• скільки може коштувати таке рішення?`,
+        ru: `Подскажите, вас интересует:\n\n• что такое ${label};\n• как внедрить ${label};\n• сколько может стоить такое решение?`,
+        en: `Please clarify what you mean:\n\n• what ${label} is;\n• how to implement ${label};\n• how much such a solution may cost?`
+    };
+    return replies[lang] || replies.uk;
 }
 
 function getKnowledgeBlocks() {
@@ -840,6 +983,40 @@ async function handleChat(req, res) {
     appendChatMessage(visitorSession, "user", message);
     const relevantBlocks = findRelevantKnowledgeBlocks(message, contextHistory, 5);
     const knowledgeContext = buildKnowledgeContext(relevantBlocks);
+    const questionType = classifyBusinessQuestion(message);
+
+    if (questionType === "INFORMATIONAL") {
+        const reply = buildInformationalConsultantReply(lang, message, relevantBlocks);
+        appendChatMessage(visitorSession, "assistant", reply);
+        saveChatSession(visitorSession);
+        sendJson(res, 200, {
+            reply,
+            captchaRequired: false
+        }, chatHeaders);
+        return;
+    }
+
+    if (questionType === "CLARIFICATION") {
+        const reply = buildBusinessClarificationReply(lang, message);
+        appendChatMessage(visitorSession, "assistant", reply);
+        saveChatSession(visitorSession);
+        sendJson(res, 200, {
+            reply,
+            captchaRequired: false
+        }, chatHeaders);
+        return;
+    }
+
+    if (questionType === "COMMERCIAL") {
+        const reply = buildCommercialConsultantReply(lang, message, relevantBlocks);
+        appendChatMessage(visitorSession, "assistant", reply);
+        saveChatSession(visitorSession);
+        sendJson(res, 200, {
+            reply,
+            captchaRequired: false
+        }, chatHeaders);
+        return;
+    }
 
     if (!relevantBlocks.length && detectUnclearQuestion(message)) {
         const reply = buildClarificationReply(lang);

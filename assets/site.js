@@ -1458,7 +1458,6 @@ function createChatWidget() {
     const handleLeadFlow = async (value, memory) => {
         const copy = getLeadCopy();
         const contact = detectLeadContact(value);
-        const leadIntent = detectLeadIntent(value);
 
         if (contact && leadStage === "need_contact") {
             saveLeadContact(contact);
@@ -1476,27 +1475,6 @@ function createChatWidget() {
                 setLeadStage("completed");
                 return copy.fail;
             }
-        }
-
-        if (leadIntent) {
-            if (memory.detectedInterest) {
-                visitorInterest = memory.detectedInterest;
-                writeChatSessionValue(CHAT_SESSION_KEYS.userInterest, visitorInterest);
-            }
-
-            if (contact) {
-                saveLeadContact(contact);
-                setLeadStage("need_task");
-                return copy.task;
-            }
-
-            if (!visitorContact) {
-                setLeadStage("need_contact");
-                return leadContactRequest();
-            }
-
-            setLeadStage("need_task");
-            return copy.task;
         }
 
         return "";
