@@ -13,3 +13,8 @@ playwright-report/
 _archive_staging/
 _archive/
 data/leads.json
+data/unanswered.json
+data/chat-sessions.json
+data/*.json
+data/*.ndjson
+!data/.gitkeep

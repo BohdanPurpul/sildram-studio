@@ -4,7 +4,8 @@
   "private": true,
   "description": "Sildram Studio website with secure server-side AI chat endpoint.",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "security:preflight": "node scripts/preflight-security-check.js"
   },
   "engines": {
     "node": ">=20"

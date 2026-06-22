@@ -1057,6 +1057,13 @@ function getChatCopy() {
     return CHAT_ONBOARDING[currentLang] || CHAT_ONBOARDING.uk;
 }
 
+function getWelcomeBackCopy(name) {
+    const cleanName = String(name || "").trim();
+    if (currentLang === "en") return `Welcome back, ${cleanName}! Shall we continue where we left off?`;
+    if (currentLang === "ru") return `\u0421 \u0432\u043e\u0437\u0432\u0440\u0430\u0449\u0435\u043d\u0438\u0435\u043c, ${cleanName}! \u041f\u0440\u043e\u0434\u043e\u043b\u0436\u0438\u043c \u0441 \u0442\u043e\u0433\u043e \u043c\u0435\u0441\u0442\u0430, \u0433\u0434\u0435 \u043e\u0441\u0442\u0430\u043d\u043e\u0432\u0438\u043b\u0438\u0441\u044c?`;
+    return `\u0417 \u043f\u043e\u0432\u0435\u0440\u043d\u0435\u043d\u043d\u044f\u043c, ${cleanName}! \u041f\u0440\u043e\u0434\u043e\u0432\u0436\u0438\u043c\u043e \u0437 \u0442\u043e\u0433\u043e \u043c\u0456\u0441\u0446\u044f, \u0434\u0435 \u0437\u0443\u043f\u0438\u043d\u0438\u043b\u0438\u0441\u044f?`;
+}
+
 function readChatSessionValue(key) {
     try {
         return sessionStorage.getItem(key) || "";
@@ -1261,6 +1268,7 @@ function createChatWidget() {
     let visitorContact = readChatSessionValue(CHAT_SESSION_KEYS.userContact);
     let leadStage = readChatSessionValue(CHAT_SESSION_KEYS.leadStage) || "idle";
     let leadTask = readChatSessionValue(CHAT_SESSION_KEYS.leadTask);
+    let chatStateLoaded = false;
 
     const addMessage = (text, type = "bot") => {
         const message = document.createElement("div");
@@ -1276,6 +1284,47 @@ function createChatWidget() {
         history.push({ role, content });
         while (history.length > 12) history.shift();
         writeChatHistory(history);
+    };
+
+    const syncChatMemory = async (items) => {
+        try {
+            await fetch("/api/chat-memory", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    messages: items,
+                    userName: visitorName,
+                    userContact: visitorContact,
+                    userInterest: visitorInterest
+                })
+            });
+        } catch (error) {}
+    };
+
+    const loadBackendChatState = async () => {
+        if (chatStateLoaded) return null;
+        chatStateLoaded = true;
+
+        try {
+            const response = await fetch("/api/chat-state", {
+                method: "GET",
+                headers: { "Accept": "application/json" }
+            });
+            if (!response.ok) return null;
+
+            const data = await response.json();
+            if (data.name && !visitorName) {
+                visitorName = String(data.name).slice(0, 80);
+                writeChatSessionValue(CHAT_SESSION_KEYS.userName, visitorName);
+            }
+            if (data.interest && !visitorInterest) {
+                visitorInterest = String(data.interest).slice(0, 120);
+                writeChatSessionValue(CHAT_SESSION_KEYS.userInterest, visitorInterest);
+            }
+            return data;
+        } catch (error) {
+            return null;
+        }
     };
 
     const lastAssistantMessage = () => {
@@ -1328,6 +1377,7 @@ function createChatWidget() {
                     lang: currentLang,
                     captchaToken: captchaVerified ? "" : captchaToken,
                     userName: visitorName,
+                    userContact: visitorContact,
                     userInterest: visitorInterest
                 })
             });
@@ -1494,6 +1544,10 @@ function createChatWidget() {
                 : getDialogueCopy().greetingUnknown;
             addMessage(reply, "bot");
             rememberMessage("assistant", reply);
+            syncChatMemory([
+                { role: "user", content: value },
+                { role: "assistant", content: reply }
+            ]);
             return;
         }
 
@@ -1502,6 +1556,10 @@ function createChatWidget() {
         if (leadReply) {
             addMessage(leadReply, "bot");
             rememberMessage("assistant", leadReply);
+            syncChatMemory([
+                { role: "user", content: value },
+                { role: "assistant", content: leadReply }
+            ]);
             return;
         }
 
@@ -1509,6 +1567,10 @@ function createChatWidget() {
         if (onboardingReply) {
             addMessage(onboardingReply, "bot");
             rememberMessage("assistant", onboardingReply);
+            syncChatMemory([
+                { role: "user", content: value },
+                { role: "assistant", content: onboardingReply }
+            ]);
             return;
         }
 
@@ -1526,11 +1588,21 @@ function createChatWidget() {
 
     };
 
-    const ensureWelcomeMessage = () => {
+    const ensureWelcomeMessage = async () => {
         if (history.length || readChatSessionValue(CHAT_SESSION_KEYS.welcomed)) return;
+        const backendState = await loadBackendChatState();
+        if (backendState?.hasHistory && visitorName) {
+            const welcomeBack = getWelcomeBackCopy(visitorName);
+            addMessage(welcomeBack);
+            rememberMessage("assistant", welcomeBack);
+            syncChatMemory([{ role: "assistant", content: welcomeBack }]);
+            writeChatSessionValue(CHAT_SESSION_KEYS.welcomed, "1");
+            return;
+        }
         const welcome = getChatCopy().welcome;
         addMessage(welcome);
         rememberMessage("assistant", welcome);
+        syncChatMemory([{ role: "assistant", content: welcome }]);
         writeChatSessionValue(CHAT_SESSION_KEYS.welcomed, "1");
     };
 
