@@ -1014,6 +1014,10 @@ const CHAT_SESSION_KEYS = {
     userContact: "sildram-chat-user-contact",
     leadStage: "sildram-chat-lead-stage",
     leadTask: "sildram-chat-lead-task",
+    lastIntent: "sildram-chat-last-intent",
+    lastBusinessDomain: "sildram-chat-last-business-domain",
+    lastBusinessDescription: "sildram-chat-last-business-description",
+    expects: "sildram-chat-expects",
     welcomed: "sildram-chat-welcomed"
 };
 
@@ -1119,6 +1123,53 @@ function detectLeadContact(text) {
     if (phone) return phone[0].trim();
     if (/telegram|whatsapp|viber|\u0442\u0435\u043b\u0435\u0433\u0440\u0430\u043c|телеграм/i.test(value) && value.length <= 120) return value;
     return "";
+}
+
+function normalizeChatText(text) {
+    return String(text || "")
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}\s-]/gu, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+function classifyClientBusinessDomain(text) {
+    const value = normalizeChatText(text);
+    const domains = [
+        ["ECOMMERCE_RETAIL", /(\u0438\u043d\u0442\u0435\u0440\u043d\u0435\u0442[-\s]?\u043c\u0430\u0433\u0430\u0437\u0438\u043d|\u0456\u043d\u0442\u0435\u0440\u043d\u0435\u0442[-\s]?\u043c\u0430\u0433\u0430\u0437\u0438\u043d|\u043c\u0430\u0433\u0430\u0437\u0438\u043d\s+\u043e\u0434\u0435\u0436\u0434|\u043c\u0430\u0433\u0430\u0437\u0438\u043d\s+\u043e\u0434\u044f\u0433|online store|clothing store|\bshop\b|\bstore\b)/i],
+        ["FOOD_HOSPITALITY", /(\u0434\u043e\u0441\u0442\u0430\u0432\u043a\w*\s+\u0435\u0434\u044b|\u0434\u043e\u0441\u0442\u0430\u0432\u043a\w*\s+\u0457\u0436\u0456|\u0440\u0435\u0441\u0442\u043e\u0440\u0430\u043d|\u043a\u0430\u0444\u0435|\u043f\u0438\u0446\u0446\u0435\u0440|\u043f\u0456\u0446\u0435\u0440|\u0441\u0443\u0448\u0438|\u0441\u0443\u0448\u0456|food delivery|restaurant|cafe)/i],
+        ["MEDICAL_HEALTH", /(\u0441\u0442\u043e\u043c\u0430\u0442\u043e\u043b\u043e\u0433|\u043a\u043b\u0438\u043d\u0438\u043a|\u043a\u043b\u0456\u043d\u0456\u043a|\u043c\u0435\u0434\u0438\u0446\u0438\u043d|dental clinic|\bclinic\b|healthcare)/i],
+        ["BEAUTY_WELLNESS", /(\u0441\u0430\u043b\u043e\u043d\s+\u043a\u0440\u0430\u0441\u043e\u0442|\u0441\u0430\u043b\u043e\u043d\s+\u043a\u0440\u0430\u0441\u0438|\u0431\u0430\u0440\u0431\u0435\u0440|\u043c\u0430\u043d\u0438\u043a\u044e\u0440|\u043c\u0430\u043d\u0456\u043a\u044e\u0440|beauty salon|barber|spa|\bgym\b)/i],
+        ["EDUCATION", /(\u0448\u043a\u043e\u043b|\u043a\u0443\u0440\u0441|\u0440\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440|academy|school|courses|tutor)/i],
+        ["LEGAL_FINANCE", /(\u044e\u0440\u0438\u0441\u0442|\u0430\u0434\u0432\u043e\u043a\u0430\u0442|\u0431\u0443\u0445\u0433\u0430\u043b\u0442\u0435\u0440|lawyer|legal|accounting|finance)/i],
+        ["REAL_ESTATE_CONSTRUCTION", /(\u043d\u0435\u0434\u0432\u0438\u0436|\u043d\u0435\u0440\u0443\u0445\u043e\u043c|\u0441\u0442\u0440\u043e\u0438\u0442\u0435\u043b|\u0431\u0443\u0434\u0456\u0432|\u0440\u0435\u043c\u043e\u043d\u0442|\u043c\u0435\u0431\u0435\u043b|\u043c\u0435\u0431\u043b|real estate|construction|renovation)/i],
+        ["AUTO_TRANSPORT", /(\u0430\u0432\u0442\u043e\u0441\u0435\u0440\u0432\u0438\u0441|\u0430\u0432\u0442\u043e\u0441\u0435\u0440\u0432\u0456\u0441|\u0442\u0430\u043a\u0441\u0438|\u0442\u0430\u043a\u0441\u0456|\u043b\u043e\u0433\u0438\u0441\u0442|\u043b\u043e\u0433\u0456\u0441\u0442|\b\u0441\u0442\u043e\b|car service|logistics|delivery)/i],
+        ["PROFESSIONAL_SERVICES", /(\u0430\u0433\u0435\u043d\u0442\u0441\u0442\u0432|\u043c\u0430\u0440\u043a\u0435\u0442\u0438\u043d\u0433|smm|\u0434\u0438\u0437\u0430\u0439\u043d|\u0443\u0441\u043b\u0443\u0433|\u043f\u043e\u0441\u043b\u0443\u0433|agency|marketing|design|consulting)/i],
+        ["MANUFACTURING_B2B", /(\u043f\u0440\u043e\u0438\u0437\u0432\u043e\u0434\u0441\u0442\u0432|\u0432\u0438\u0440\u043e\u0431\u043d\u0438\u0446\u0442\u0432|\u0437\u0430\u0432\u043e\u0434|\u0444\u0430\u0431\u0440\u0438\u043a|\u043c\u0435\u0431\u0435\u043b|\u043c\u0435\u0431\u043b|manufacturing|factory|wholesale|supplier)/i],
+        ["GENERAL_SERVICES", /(\u043a\u043b\u0438\u043d\u0438\u043d\u0433|\u043a\u043b\u0456\u043d\u0456\u043d\u0433|\u0441\u0435\u0440\u0432\u0438\u0441|\u0441\u0435\u0440\u0432\u0456\u0441|service|repair|cleaning)/i]
+    ];
+    const match = domains.find(([, pattern]) => pattern.test(value));
+    return match ? match[0] : "";
+}
+
+function detectClientBusinessDescription(text, expectedContext = "") {
+    const value = normalizeChatText(text);
+    const hasIntro = /(^|\s)(\u0443\s+\u043c\u0435\u043d\u044f|\u0443\s+\u043d\u0430\u0441|\u0443\s+\u043c\u0435\u043d\u0435|\u043c\u043e\u0439\s+\u0431\u0438\u0437\u043d\u0435\u0441|\u043c\u0456\u0439\s+\u0431\u0456\u0437\u043d\u0435\u0441|my\s+business|my\s+company|i\s+have|we\s+have)\b/i.test(value);
+    const domain = classifyClientBusinessDomain(value);
+    if (!domain && !hasIntro && expectedContext !== "BUSINESS_CONTEXT") return null;
+
+    const description = value
+        .replace(/(^|\s)(\u0443\s+\u043c\u0435\u043d\u044f\s+\u0435\u0441\u0442\u044c|\u0443\s+\u043d\u0430\u0441\s+\u0435\u0441\u0442\u044c|\u0443\s+\u043c\u0435\u043d\u044f|\u0443\s+\u043d\u0430\u0441|\u0443\s+\u043c\u0435\u043d\u0435|\u043c\u043e\u0439\s+\u0431\u0438\u0437\u043d\u0435\u0441|\u043c\u043e\u044f\s+\u043a\u043e\u043c\u043f\u0430\u043d\u0438\u044f|\u043c\u0456\u0439\s+\u0431\u0456\u0437\u043d\u0435\u0441|\u043c\u043e\u044f\s+\u043a\u043e\u043c\u043f\u0430\u043d\u0456\u044f|my\s+business\s+is|my\s+business|my\s+company|i\s+have\s+a|i\s+have|we\s+have\s+a|we\s+have)\b/i, " ")
+        .trim();
+    if (!description) return null;
+    return { domain: domain || "UNKNOWN_BUSINESS", description };
+}
+
+function detectClientSolutionRequest(text) {
+    const value = normalizeChatText(text);
+    const hasSolution = /(crm|\u0441\u0440\u043c|\u0446\u0440\u043c|\u0441\u0430\u0439\u0442|website|telegram|\u0442\u0435\u043b\u0435\u0433\u0440\u0430\u043c|\u0431\u043e\u0442|ai|\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442)/i.test(value);
+    const hasBusiness = Boolean(classifyClientBusinessDomain(value));
+    return hasSolution && hasBusiness;
 }
 
 function getLeadCopy() {
@@ -1268,6 +1319,10 @@ function createChatWidget() {
     let visitorContact = readChatSessionValue(CHAT_SESSION_KEYS.userContact);
     let leadStage = readChatSessionValue(CHAT_SESSION_KEYS.leadStage) || "idle";
     let leadTask = readChatSessionValue(CHAT_SESSION_KEYS.leadTask);
+    let lastIntent = readChatSessionValue(CHAT_SESSION_KEYS.lastIntent);
+    let lastBusinessDomain = readChatSessionValue(CHAT_SESSION_KEYS.lastBusinessDomain);
+    let lastBusinessDescription = readChatSessionValue(CHAT_SESSION_KEYS.lastBusinessDescription);
+    let expectedFollowup = readChatSessionValue(CHAT_SESSION_KEYS.expects);
     let chatStateLoaded = false;
 
     const addMessage = (text, type = "bot") => {
@@ -1334,6 +1389,67 @@ function createChatWidget() {
 
     const normalizeReply = (text) => String(text || "").replace(/\s+/g, " ").trim().toLowerCase();
 
+    const detectExpectedContext = () => {
+        if (expectedFollowup === "business_context") return "BUSINESS_CONTEXT";
+        if (expectedFollowup === "task_context") return "TASK_CONTEXT";
+        if (expectedFollowup === "contact_context") return "CONTACT_CONTEXT";
+        const last = normalizeReply(lastAssistantMessage());
+        if (!last) return "";
+
+        if (
+            /(\u043a\u0430\u043a\u043e\u0439\s+\u0443\s+\u0432\u0430\u0441\s+\u0431\u0438\u0437\u043d\u0435\u0441|\u0440\u0430\u0441\u0441\u043a\u0430\u0436\w*\s+.{0,24}\u0431\u0438\u0437\u043d\u0435\u0441|\u0447\u0435\u043c\s+\u0437\u0430\u043d\u0438\u043c\u0430\w*\s+\u043a\u043e\u043c\u043f\u0430\u043d|\u043a\u0430\u043a\u0430\u044f\s+\u0441\u0444\u0435\u0440\u0430\s+\u0431\u0438\u0437\u043d\u0435\u0441)/i.test(last)
+            || /(\u044f\u043a\u0438\u0439\s+\u0443\s+\u0432\u0430\u0441\s+\u0431\u0456\u0437\u043d\u0435\u0441|\u0440\u043e\u0437\u043a\u0430\u0436\w*\s+.{0,24}\u0431\u0456\u0437\u043d\u0435\u0441|\u0447\u0438\u043c\s+\u0437\u0430\u0439\u043c\u0430\w*\s+\u043a\u043e\u043c\u043f\u0430\u043d|\u044f\u043a\u0430\s+\u0441\u0444\u0435\u0440\u0430\s+\u0431\u0456\u0437\u043d\u0435\u0441)/i.test(last)
+            || /(what\s+(kind\s+of\s+)?business\s+(do\s+you\s+have|this\s+is\s+for)|tell\s+me\s+.{0,24}business|what\s+does\s+your\s+company\s+do|what\s+business\s+do\s+you\s+have)/i.test(last)
+        ) {
+            return "BUSINESS_CONTEXT";
+        }
+
+        if (/(\u043e\u043f\u0438\u0448\w*\s+\u0437\u0430\u0434\u0430\u0447|\u0447\u0442\u043e\s+\u043d\u0443\u0436\u043d\u043e\s+\u0430\u0432\u0442\u043e\u043c\u0430\u0442|\u0449\u043e\s+\u043f\u043e\u0442\u0440\u0456\u0431\u043d\u043e\s+\u0430\u0432\u0442\u043e\u043c\u0430\u0442|describe\s+the\s+task|what\s+should\s+be\s+automated)/i.test(last)) {
+            return "TASK_CONTEXT";
+        }
+
+        if (/(\u0443\u0434\u043e\u0431\u043d\w*\s+\u043a\u043e\u043d\u0442\u0430\u043a\u0442|\u0437\u0440\u0443\u0447\u043d\w*\s+\u043a\u043e\u043d\u0442\u0430\u043a\u0442|leave\s+a\s+convenient\s+contact|telegram\s+phone\s+or\s+email)/i.test(last)) {
+            return "CONTACT_CONTEXT";
+        }
+
+        return "";
+    };
+
+    const setExpectedFollowup = (value) => {
+        expectedFollowup = value;
+        writeChatSessionValue(CHAT_SESSION_KEYS.expects, value);
+    };
+
+    const setLastIntent = (value) => {
+        lastIntent = value;
+        writeChatSessionValue(CHAT_SESSION_KEYS.lastIntent, value);
+    };
+
+    const saveBusinessState = (business) => {
+        if (!business) return;
+        lastBusinessDomain = business.domain || "UNKNOWN_BUSINESS";
+        lastBusinessDescription = business.description || "";
+        writeChatSessionValue(CHAT_SESSION_KEYS.lastBusinessDomain, lastBusinessDomain);
+        writeChatSessionValue(CHAT_SESSION_KEYS.lastBusinessDescription, lastBusinessDescription);
+    };
+
+    const updateDialogStateFromReply = (reply) => {
+        const value = normalizeReply(reply);
+        if (
+            (value.includes("\u0445\u043e\u0442\u0438\u0442\u0435") || value.includes("\u0445\u043e\u0447\u0435\u0442\u0435") || value.includes("would you like"))
+            && (value.includes("\u043f\u043e\u043a\u0430\u0436") || value.includes("show"))
+        ) {
+            setExpectedFollowup("example_confirmation");
+            return;
+        }
+
+        const derived = detectExpectedContext();
+        if (derived === "BUSINESS_CONTEXT") setExpectedFollowup("business_context");
+        else if (derived === "TASK_CONTEXT") setExpectedFollowup("task_context");
+        else if (derived === "CONTACT_CONTEXT") setExpectedFollowup("contact_context");
+        else setExpectedFollowup("");
+    };
+
     const isGenericFallbackReply = (text) => {
         const value = normalizeReply(text);
         return value.includes("можу допомогти з ai")
@@ -1353,14 +1469,8 @@ function createChatWidget() {
 
     const isAffirmativeContinuation = (text) => {
         const value = String(text || "").toLowerCase().replace(/[!?.,"'()]/g, " ").replace(/\s+/g, " ").trim();
-        if (!/^(yes|ok|okay|sure|\u0434\u0430|\u043e\u043a|\u0445\u043e\u0440\u043e\u0448\u043e|\u0442\u0430\u043a|\u0434\u043e\u0431\u0440\u0435)$/.test(value)) return false;
-        const last = normalizeReply(lastAssistantMessage());
-        return last.includes("\u0445\u043e\u0442\u0438\u0442\u0435")
-            || last.includes("\u0445\u043e\u0447\u0435\u0442\u0435")
-            || last.includes("would you like")
-            || last.includes("\u043f\u043e\u043a\u0430\u0436\u0443")
-            || last.includes("\u043f\u043e\u043a\u0430\u0436\u0443")
-            || last.includes("show a simple");
+        if (expectedFollowup !== "example_confirmation") return false;
+        return /^(yes|yes show|show|show example|ok|okay|sure|\u0434\u0430|\u0434\u0430\s+\u043f\u043e\u043a\u0430\u0436\w*|\u043f\u043e\u043a\u0430\u0436\w*|\u043f\u043e\u043a\u0430\u0436\w*\s+\u043f\u0440\u0438\u043c\u0435\u0440|\u0442\u0430\u043a|\u0442\u0430\u043a\s+\u043f\u043e\u043a\u0430\u0436\w*|\u043e\u043a|\u0445\u043e\u0440\u043e\u0448\u043e|\u0434\u043e\u0431\u0440\u0435)$/.test(value);
     };
 
     const buildContinuationReply = () => {
@@ -1387,7 +1497,7 @@ function createChatWidget() {
         "AI-консультант тимчасово недоступний. Спробуйте ще раз трохи пізніше або скористайтеся формою на сторінці «Контакти»."
     );
 
-    const getAssistantReply = async (text) => {
+    const getAssistantReply = async (text, meta = {}) => {
         try {
             const response = await fetch("/api/chat", {
                 method: "POST",
@@ -1399,7 +1509,12 @@ function createChatWidget() {
                     captchaToken: captchaVerified ? "" : captchaToken,
                     userName: visitorName,
                     userContact: visitorContact,
-                    userInterest: visitorInterest
+                    userInterest: visitorInterest,
+                    intent: meta.intent || "",
+                    expectedContext: meta.expectedContext || "",
+                    businessDomain: meta.businessDomain || lastBusinessDomain,
+                    businessDescription: meta.businessDescription || lastBusinessDescription,
+                    lastIntent
                 })
             });
 
@@ -1501,9 +1616,15 @@ function createChatWidget() {
         return "";
     };
 
-    const applyOnboardingMemory = (value) => {
+    const applyOnboardingMemory = (value, expectedContext = "") => {
         const detectedInterest = detectChatInterest(value);
-        const detectedName = detectVisitorName(value);
+        const business = detectClientBusinessDescription(value, expectedContext);
+        const solutionRequest = detectClientSolutionRequest(value);
+        if (business) saveBusinessState(business);
+
+        const detectedName = (!visitorName && !expectedContext && !business)
+            ? detectVisitorName(value)
+            : "";
 
         if (detectedInterest) {
             visitorInterest = detectedInterest;
@@ -1515,7 +1636,7 @@ function createChatWidget() {
             writeChatSessionValue(CHAT_SESSION_KEYS.userName, visitorName);
         }
 
-        return { detectedName, detectedInterest };
+        return { detectedName, detectedInterest, business, solutionRequest };
     };
 
     const getOnboardingReply = (memory) => {
@@ -1524,7 +1645,7 @@ function createChatWidget() {
             return getDialogueCopy().nameKnown(memory.detectedName);
         }
 
-        if (memory.detectedInterest && !visitorName && !memory.detectedName) {
+        if (memory.detectedInterest && !visitorName && !memory.detectedName && !memory.business && !memory.solutionRequest) {
             return copy.taskOnly[memory.detectedInterest] || copy.taskOnly.automation;
         }
 
@@ -1536,6 +1657,7 @@ function createChatWidget() {
         if (!value) return;
         addMessage(value, "user");
         rememberMessage("user", value);
+        const expectedContext = detectExpectedContext();
 
         if (detectGreeting(value)) {
             const reply = visitorName
@@ -1543,6 +1665,7 @@ function createChatWidget() {
                 : getDialogueCopy().greetingUnknown;
             addMessage(reply, "bot");
             rememberMessage("assistant", reply);
+            updateDialogStateFromReply(reply);
             syncChatMemory([
                 { role: "user", content: value },
                 { role: "assistant", content: reply }
@@ -1551,9 +1674,16 @@ function createChatWidget() {
         }
 
         if (isAffirmativeContinuation(value)) {
-            const reply = buildContinuationReply();
+            const reply = await getAssistantReply(value, {
+                intent: "SHOW_EXAMPLE",
+                businessDomain: lastBusinessDomain,
+                businessDescription: lastBusinessDescription
+            });
+            setLastIntent("SHOW_EXAMPLE");
+            setExpectedFollowup("");
             addMessage(reply, "bot");
             rememberMessage("assistant", reply);
+            updateDialogStateFromReply(reply);
             syncChatMemory([
                 { role: "user", content: value },
                 { role: "assistant", content: reply }
@@ -1561,11 +1691,14 @@ function createChatWidget() {
             return;
         }
 
-        const memory = applyOnboardingMemory(value);
+        const memory = applyOnboardingMemory(value, expectedContext);
+        if (memory.solutionRequest) setLastIntent("SOLUTION_REQUEST");
+        else if (memory.business) setLastIntent("BUSINESS_CONTEXT");
         const leadReply = await handleLeadFlow(value, memory);
         if (leadReply) {
             addMessage(leadReply, "bot");
             rememberMessage("assistant", leadReply);
+            updateDialogStateFromReply(leadReply);
             syncChatMemory([
                 { role: "user", content: value },
                 { role: "assistant", content: leadReply }
@@ -1577,6 +1710,7 @@ function createChatWidget() {
         if (onboardingReply) {
             addMessage(onboardingReply, "bot");
             rememberMessage("assistant", onboardingReply);
+            updateDialogStateFromReply(onboardingReply);
             syncChatMemory([
                 { role: "user", content: value },
                 { role: "assistant", content: onboardingReply }
@@ -1590,11 +1724,17 @@ function createChatWidget() {
         messages.appendChild(typing);
         messages.scrollTop = messages.scrollHeight;
 
-        const reply = await getAssistantReply(value);
+        const reply = await getAssistantReply(value, {
+            intent: memory.solutionRequest ? "SOLUTION_REQUEST" : "",
+            expectedContext,
+            businessDomain: lastBusinessDomain,
+            businessDescription: lastBusinessDescription
+        });
         typing.remove();
         const polishedReply = polishAssistantReply(reply);
         addMessage(polishedReply, "bot");
         rememberMessage("assistant", polishedReply);
+        updateDialogStateFromReply(polishedReply);
 
     };
 
@@ -1605,6 +1745,7 @@ function createChatWidget() {
             const welcomeBack = getWelcomeBackCopy(visitorName);
             addMessage(welcomeBack);
             rememberMessage("assistant", welcomeBack);
+            updateDialogStateFromReply(welcomeBack);
             syncChatMemory([{ role: "assistant", content: welcomeBack }]);
             writeChatSessionValue(CHAT_SESSION_KEYS.welcomed, "1");
             return;
@@ -1612,6 +1753,7 @@ function createChatWidget() {
         const welcome = getChatCopy().welcome;
         addMessage(welcome);
         rememberMessage("assistant", welcome);
+        updateDialogStateFromReply(welcome);
         syncChatMemory([{ role: "assistant", content: welcome }]);
         writeChatSessionValue(CHAT_SESSION_KEYS.welcomed, "1");
     };

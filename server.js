@@ -255,6 +255,20 @@ function detectCommercialIntent(message) {
     return "";
 }
 
+function detectSolutionRequest(message) {
+    const normalized = normalizeSearchText(message);
+    const hasSolution = /(crm|\u0441\u0440\u043c|\u0446\u0440\u043c|telegram|\u0442\u0435\u043b\u0435\u0433\u0440\u0430\u043c|\u0431\u043e\u0442|\u0441\u0430\u0439\u0442|website|ai|\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442)/i.test(normalized);
+    const hasBusiness = detectKnownBusinessNiche(normalized);
+    const hasForBusiness = /(\u0434\u043b\u044f|\u043f\u043e\u0434|\u043f\u0456\u0434|for)\s+.{2,80}/i.test(normalized);
+    const asksInfo = /(\u0449\u043e|\u0447\u0442\u043e).{0,20}(\u0442\u0430\u043a\u0435|\u044d\u0442\u043e)|\bwhat\s+is\b/i.test(normalized);
+    return hasSolution && !asksInfo && (hasBusiness || hasForBusiness);
+}
+
+function detectExampleRequest(message) {
+    const normalized = normalizeSearchText(message);
+    return /(\u043f\u043e\u043a\u0430\u0436\w*\s+.{0,30}\u043f\u0440\u0438\u043c\u0435\u0440|\u043f\u0440\u0438\u043c\u0435\u0440\s+.{0,40}(\u0432\u043d\u0435\u0434\u0440|\u0446\u0440\u043c|\u0441\u0440\u043c|crm)|show\s+.{0,30}example|example\s+.{0,30}(crm|implementation))/i.test(normalized);
+}
+
 function classifyBusinessQuestion(message) {
     const normalized = normalizeSearchText(message);
     const terms = normalized.split(/\s+/).filter(Boolean);
@@ -271,6 +285,33 @@ function classifyBusinessQuestion(message) {
     if (hasService && terms.length <= 2) return "CLARIFICATION";
 
     return hasService ? "INFORMATIONAL" : "OFF_TOPIC";
+}
+
+function detectExpectedChatContext(history) {
+    const lastAssistant = [...(Array.isArray(history) ? history : [])]
+        .reverse()
+        .find((item) => item && item.role === "assistant" && item.content);
+    const text = normalizeSearchText(lastAssistant?.content || "");
+
+    if (!text) return "";
+
+    if (
+        /(\u043a\u0430\u043a\u043e\u0439\s+\u0443\s+\u0432\u0430\u0441\s+\u0431\u0438\u0437\u043d\u0435\u0441|\u0440\u0430\u0441\u0441\u043a\u0430\u0436\w*\s+.{0,24}\u0431\u0438\u0437\u043d\u0435\u0441|\u0447\u0435\u043c\s+\u0437\u0430\u043d\u0438\u043c\u0430\w*\s+\u043a\u043e\u043c\u043f\u0430\u043d|\u043a\u0430\u043a\u0430\u044f\s+\u0441\u0444\u0435\u0440\u0430\s+\u0431\u0438\u0437\u043d\u0435\u0441)/i.test(text)
+        || /(\u044f\u043a\u0438\u0439\s+\u0443\s+\u0432\u0430\u0441\s+\u0431\u0456\u0437\u043d\u0435\u0441|\u0440\u043e\u0437\u043a\u0430\u0436\w*\s+.{0,24}\u0431\u0456\u0437\u043d\u0435\u0441|\u0447\u0438\u043c\s+\u0437\u0430\u0439\u043c\u0430\w*\s+\u043a\u043e\u043c\u043f\u0430\u043d|\u044f\u043a\u0430\s+\u0441\u0444\u0435\u0440\u0430\s+\u0431\u0456\u0437\u043d\u0435\u0441)/i.test(text)
+        || /(what\s+(kind\s+of\s+)?business\s+(do\s+you\s+have|this\s+is\s+for)|tell\s+me\s+.{0,24}business|what\s+does\s+your\s+company\s+do|what\s+business\s+do\s+you\s+have)/i.test(text)
+    ) {
+        return "BUSINESS_CONTEXT";
+    }
+
+    if (/(\u043e\u043f\u0438\u0448\w*\s+\u0437\u0430\u0434\u0430\u0447|\u0447\u0442\u043e\s+\u043d\u0443\u0436\u043d\u043e\s+\u0430\u0432\u0442\u043e\u043c\u0430\u0442|\u0449\u043e\s+\u043f\u043e\u0442\u0440\u0456\u0431\u043d\u043e\s+\u0430\u0432\u0442\u043e\u043c\u0430\u0442|describe\s+the\s+task|what\s+should\s+be\s+automated)/i.test(text)) {
+        return "TASK_CONTEXT";
+    }
+
+    if (/(\u0443\u0434\u043e\u0431\u043d\w*\s+\u043a\u043e\u043d\u0442\u0430\u043a\u0442|\u0437\u0440\u0443\u0447\u043d\w*\s+\u043a\u043e\u043d\u0442\u0430\u043a\u0442|leave\s+a\s+convenient\s+contact|telegram\s+phone\s+or\s+email)/i.test(text)) {
+        return "CONTACT_CONTEXT";
+    }
+
+    return "";
 }
 
 function detectBusinessContext(value) {
@@ -530,6 +571,53 @@ function buildBusinessContextReply(lang, message) {
     };
     const locale = replies[lang] || replies.uk;
     return locale[domain] || locale.UNKNOWN_BUSINESS;
+}
+
+function resolveBusinessDomain(message, context = {}) {
+    const fromContext = cleanContactField(context.businessDomain, 80);
+    if (fromContext && fromContext !== "UNKNOWN_BUSINESS") return fromContext;
+    const fromMessage = classifyBusinessDomain(`${message} ${context.businessDescription || ""}`);
+    return fromMessage || "UNKNOWN_BUSINESS";
+}
+
+function buildShowExampleReply(lang, message, context = {}) {
+    const domain = resolveBusinessDomain(message, context);
+    const replies = {
+        uk: {
+            FOOD_HOSPITALITY: "Приклад для доставки їжі: клієнт відкриває сайт або меню, обирає страви, Telegram-бот уточнює адресу, телефон і спосіб оплати, а замовлення автоматично потрапляє в CRM зі статусом «нове». Менеджер бачить джерело заявки, склад замовлення і наступний крок: підтвердити, передати на кухню або уточнити деталі.",
+            default: "Приклад впровадження CRM: клієнт залишає заявку на сайті або пише в Telegram-бот, система створює картку клієнта в CRM, фіксує джерело звернення, задачу і статус. Менеджер бачить наступний крок: передзвонити, уточнити деталі або оформити замовлення."
+        },
+        ru: {
+            FOOD_HOSPITALITY: "Пример для доставки еды: клиент открывает сайт или меню, выбирает блюда, Telegram-бот уточняет адрес, телефон и способ оплаты, а заказ автоматически попадает в CRM со статусом «новый». Менеджер видит источник заявки, состав заказа и следующий шаг: подтвердить, передать на кухню или уточнить детали.",
+            default: "Пример внедрения CRM: клиент оставляет заявку на сайте или пишет в Telegram-бот, система создаёт карточку клиента в CRM, фиксирует источник обращения, задачу и статус. Менеджер видит следующий шаг: перезвонить, уточнить детали или оформить заказ."
+        },
+        en: {
+            FOOD_HOSPITALITY: "Example for food delivery: a customer opens the website or menu, chooses dishes, the Telegram bot clarifies address, phone number, and payment method, and the order is automatically sent to CRM with the status “new”. The manager sees the request source, order details, and the next step: confirm, send to the kitchen, or clarify details.",
+            default: "CRM implementation example: a client submits a website form or writes to a Telegram bot, the system creates a CRM client card, records the source, task, and status. The manager sees the next step: call back, clarify details, or process the order."
+        }
+    };
+    const locale = replies[lang] || replies.uk;
+    return locale[domain] || locale.default;
+}
+
+function buildSolutionRequestReply(lang, message, context = {}) {
+    const domain = resolveBusinessDomain(message, context);
+    const replies = {
+        uk: {
+            FOOD_HOSPITALITY: "Для доставки їжі можна побудувати зв'язку: сайт або меню для вибору страв, форма заявки або Telegram-бот для уточнення замовлення, CRM для контролю замовлень і клієнтів, AI-консультант для частих питань.\n\nНаприклад, клієнт обирає страви на сайті, бот уточнює адресу й телефон, а замовлення потрапляє в CRM зі статусом «нове». Так команді легше бачити всі звернення і не губити замовлення.",
+            default: "Для такого бізнесу можна побудувати зв'язку: сайт для пояснення послуг, Telegram-бот або форма для збору заявок, CRM для контролю звернень і AI-консультант для частих питань.\n\nНаприклад, клієнт залишає заявку, система уточнює деталі й передає її команді в структурованому вигляді."
+        },
+        ru: {
+            FOOD_HOSPITALITY: "Для доставки еды можно построить связку: сайт или меню для выбора блюд, форма заявки или Telegram-бот для уточнения заказа, CRM для контроля заказов и клиентов, AI-консультант для частых вопросов.\n\nНапример, клиент выбирает блюда на сайте, бот уточняет адрес и телефон, а заказ попадает в CRM со статусом «новый». Так команде проще видеть все обращения и не терять заказы.",
+            default: "Для такого бизнеса можно построить связку: сайт для объяснения услуг, Telegram-бот или форма для сбора заявок, CRM для контроля обращений и AI-консультант для частых вопросов.\n\nНапример, клиент оставляет заявку, система уточняет детали и передаёт её команде в структурированном виде."
+        },
+        en: {
+            FOOD_HOSPITALITY: "For food delivery, you can build a setup with a website or menu for choosing dishes, a request form or Telegram bot for order clarification, CRM for order and customer tracking, and an AI consultant for common questions.\n\nFor example, a customer chooses dishes on the website, the bot clarifies address and phone number, and the order appears in CRM with the status “new”.",
+            default: "For this type of business, you can build a setup with a website to explain services, a Telegram bot or form to collect requests, CRM to track inquiries, and an AI consultant for common questions.\n\nFor example, a client submits a request, the system clarifies details, and the team receives structured information."
+        }
+    };
+    const locale = replies[lang] || replies.uk;
+    return locale[domain] || locale.default;
 }
 
 function buildCommercialConsultantReply(lang, message, blocks) {
@@ -1053,7 +1141,11 @@ async function handleChat(req, res) {
     const sessionContext = {
         userName: cleanContactField(body.userName, 80),
         userContact: cleanContactField(body.userContact || body.contact, 180),
-        userInterest: cleanContactField(body.userInterest, 80)
+        userInterest: cleanContactField(body.userInterest, 80),
+        intent: cleanContactField(body.intent, 40),
+        expectedContext: cleanContactField(body.expectedContext, 40),
+        businessDomain: cleanContactField(body.businessDomain, 80),
+        businessDescription: cleanContactField(body.businessDescription, 160)
     };
 
     if (!message) {
@@ -1108,6 +1200,7 @@ async function handleChat(req, res) {
     updateVisitorSession(visitorSession, sessionContext);
     const memoryHistory = getSessionHistoryForModel(visitorSession, 12);
     const contextHistory = mergeChatHistories(memoryHistory, cleanHistory, 12);
+    const expectedContext = sessionContext.expectedContext || detectExpectedChatContext(contextHistory);
 
     if (detectRoleOverride(message)) {
         sendJson(res, 200, {
@@ -1133,7 +1226,7 @@ async function handleChat(req, res) {
         return;
     }
 
-    if (detectOffTopic(message) && !detectBusinessContext(message) && !detectCommercialIntent(message)) {
+    if (detectOffTopic(message) && !expectedContext && !detectBusinessContext(message) && !detectCommercialIntent(message)) {
         appendChatMessage(visitorSession, "user", message);
         sendJson(res, 200, {
             reply: buildTopicRefusal(lang),
@@ -1145,9 +1238,34 @@ async function handleChat(req, res) {
     }
 
     appendChatMessage(visitorSession, "user", message);
+
+    if (sessionContext.intent === "SHOW_EXAMPLE" || detectExampleRequest(message)) {
+        const reply = buildShowExampleReply(lang, message, sessionContext);
+        appendChatMessage(visitorSession, "assistant", reply);
+        saveChatSession(visitorSession);
+        sendJson(res, 200, {
+            reply,
+            captchaRequired: false
+        }, chatHeaders);
+        return;
+    }
+
+    if (sessionContext.intent === "SOLUTION_REQUEST" || detectSolutionRequest(message)) {
+        const reply = buildSolutionRequestReply(lang, message, sessionContext);
+        appendChatMessage(visitorSession, "assistant", reply);
+        saveChatSession(visitorSession);
+        sendJson(res, 200, {
+            reply,
+            captchaRequired: false
+        }, chatHeaders);
+        return;
+    }
+
     const relevantBlocks = findRelevantKnowledgeBlocks(message, contextHistory, 5);
     const knowledgeContext = buildKnowledgeContext(relevantBlocks);
-    const questionType = classifyBusinessQuestion(message);
+    const questionType = expectedContext === "BUSINESS_CONTEXT"
+        ? "BUSINESS_CONTEXT"
+        : classifyBusinessQuestion(message);
 
     if (questionType === "BUSINESS_CONTEXT") {
         const reply = buildBusinessContextReply(lang, message);
