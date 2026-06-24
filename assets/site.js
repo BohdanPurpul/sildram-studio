@@ -1017,6 +1017,7 @@ const CHAT_SESSION_KEYS = {
     lastIntent: "sildram-chat-last-intent",
     lastBusinessDomain: "sildram-chat-last-business-domain",
     lastBusinessDescription: "sildram-chat-last-business-description",
+    requestedServices: "sildram-chat-requested-services",
     expects: "sildram-chat-expects",
     welcomed: "sildram-chat-welcomed"
 };
@@ -1169,7 +1170,19 @@ function detectClientSolutionRequest(text) {
     const value = normalizeChatText(text);
     const hasSolution = /(crm|\u0441\u0440\u043c|\u0446\u0440\u043c|\u0441\u0430\u0439\u0442|website|telegram|\u0442\u0435\u043b\u0435\u0433\u0440\u0430\u043c|\u0431\u043e\u0442|ai|\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442)/i.test(value);
     const hasBusiness = Boolean(classifyClientBusinessDomain(value));
-    return hasSolution && hasBusiness;
+    const hasBuyVerb = /(\u0445\u043e\u0447\u0443|\u043d\u0443\u0436\u0435\u043d|\u043d\u0443\u0436\u043d\S*|\u043f\u043e\u0442\u0440\u0456\u0431\S*|want|need)/i.test(value);
+    return hasSolution && (hasBusiness || hasBuyVerb);
+}
+
+function detectClientRequestedServices(text) {
+    const value = normalizeChatText(text);
+    const services = [];
+    if (/(\u0441\u0430\u0439\u0442|website|landing|\u043b\u0435\u043d\u0434\u0438\u043d\u0433)/i.test(value)) services.push("website");
+    if (/(crm|\u0441\u0440\u043c|\u0446\u0440\u043c)/i.test(value)) services.push("crm");
+    if (/(telegram|\u0442\u0435\u043b\u0435\u0433\u0440\u0430\u043c|\u0431\u043e\u0442)/i.test(value)) services.push("telegram_bot");
+    if (/(ai|\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442|\u0430\u0441\u0438\u0441\u0442|\u0430\u0441\u0441\u0438\u0441\u0442)/i.test(value)) services.push("ai_consultant");
+    if (/(\u0430\u0432\u0442\u043e\u043c\u0430\u0442|automation|\u0438\u043d\u0442\u0435\u0433\u0440\u0430\u0446|\u0456\u043d\u0442\u0435\u0433\u0440\u0430\u0446)/i.test(value)) services.push("automation");
+    return [...new Set(services)];
 }
 
 function getLeadCopy() {
@@ -1322,6 +1335,7 @@ function createChatWidget() {
     let lastIntent = readChatSessionValue(CHAT_SESSION_KEYS.lastIntent);
     let lastBusinessDomain = readChatSessionValue(CHAT_SESSION_KEYS.lastBusinessDomain);
     let lastBusinessDescription = readChatSessionValue(CHAT_SESSION_KEYS.lastBusinessDescription);
+    let requestedServices = readChatSessionValue(CHAT_SESSION_KEYS.requestedServices);
     let expectedFollowup = readChatSessionValue(CHAT_SESSION_KEYS.expects);
     let pendingBackendDialogState = null;
     let chatStateLoaded = false;
@@ -1439,13 +1453,29 @@ function createChatWidget() {
         writeChatSessionValue(CHAT_SESSION_KEYS.lastBusinessDescription, lastBusinessDescription);
     };
 
+    const saveRequestedServices = (services) => {
+        const current = requestedServices ? requestedServices.split(",").filter(Boolean) : [];
+        const incoming = Array.isArray(services) ? services : [];
+        const merged = [...new Set([...current, ...incoming].filter(Boolean))];
+        requestedServices = merged.join(",");
+        writeChatSessionValue(CHAT_SESSION_KEYS.requestedServices, requestedServices);
+    };
+
     const applyBackendDialogState = (data) => {
         if (!data || typeof data !== "object") return;
+        const hasDialogState = data.nextExpects
+            || data.intent
+            || data.businessDomain
+            || data.businessDescription
+            || (Array.isArray(data.requestedServices) && data.requestedServices.length);
+        if (!hasDialogState) return;
+
         pendingBackendDialogState = {
             nextExpects: typeof data.nextExpects === "string" ? data.nextExpects : "",
             intent: typeof data.intent === "string" ? data.intent : "",
             businessDomain: typeof data.businessDomain === "string" ? data.businessDomain : "",
-            businessDescription: typeof data.businessDescription === "string" ? data.businessDescription : ""
+            businessDescription: typeof data.businessDescription === "string" ? data.businessDescription : "",
+            requestedServices: Array.isArray(data.requestedServices) ? data.requestedServices : []
         };
     };
 
@@ -1467,6 +1497,10 @@ function createChatWidget() {
                     domain: pendingBackendDialogState.businessDomain || lastBusinessDomain || "UNKNOWN_BUSINESS",
                     description: pendingBackendDialogState.businessDescription || lastBusinessDescription
                 });
+            }
+
+            if (pendingBackendDialogState.requestedServices.length) {
+                saveRequestedServices(pendingBackendDialogState.requestedServices);
             }
 
             pendingBackendDialogState = null;
@@ -1554,6 +1588,7 @@ function createChatWidget() {
                     expects: expectedFollowup || "",
                     businessDomain: meta.businessDomain || lastBusinessDomain,
                     businessDescription: meta.businessDescription || lastBusinessDescription,
+                    requestedServices: requestedServices ? requestedServices.split(",").filter(Boolean) : [],
                     lastIntent
                 })
             });
@@ -1661,6 +1696,8 @@ function createChatWidget() {
         const detectedInterest = detectChatInterest(value);
         const business = detectClientBusinessDescription(value, expectedContext);
         const solutionRequest = detectClientSolutionRequest(value);
+        const services = detectClientRequestedServices(value);
+        if (services.length) saveRequestedServices(services);
         if (business) saveBusinessState(business);
 
         const canDetectName = !visitorName && !business && (!expectedContext || expectedContext === "NAME_CONTEXT");
@@ -1678,7 +1715,7 @@ function createChatWidget() {
             writeChatSessionValue(CHAT_SESSION_KEYS.userName, visitorName);
         }
 
-        return { detectedName, detectedInterest, business, solutionRequest };
+        return { detectedName, detectedInterest, business, solutionRequest, services };
     };
 
     const getOnboardingReply = (memory) => {

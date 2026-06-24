@@ -250,6 +250,8 @@ function detectCommercialIntent(message) {
     const normalized = normalizeServiceTerms(message).toLowerCase();
     if (priceIntentPatterns.some((pattern) => pattern.test(normalized))) return "price";
     if (priceIntentPhrases.some((phrase) => normalized.includes(phrase))) return "price";
+    if (detectCloseOrderIntent(message)) return "buy";
+    if (detectWebsiteCommercialIntent(message)) return "lead";
     if (detectCrmImplementationIntent(message)) return "lead";
     if (commercialIntentPhrases.some((phrase) => normalized.includes(phrase))) return "lead";
     return "";
@@ -260,8 +262,44 @@ function detectSolutionRequest(message) {
     const hasSolution = /(crm|\u0441\u0440\u043c|\u0446\u0440\u043c|telegram|\u0442\u0435\u043b\u0435\u0433\u0440\u0430\u043c|\u0431\u043e\u0442|\u0441\u0430\u0439\u0442|website|ai|\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442)/i.test(normalized);
     const hasBusiness = detectKnownBusinessNiche(normalized);
     const hasForBusiness = /(\u0434\u043b\u044f|\u043f\u043e\u0434|\u043f\u0456\u0434|for)\s+.{2,80}/i.test(normalized);
+    const hasBuyVerb = /(\u0445\u043e\u0447\u0443|\u043d\u0443\u0436\u0435\u043d|\u043d\u0443\u0436\u043d\S*|\u043f\u043e\u0442\u0440\u0456\u0431\S*|want|need)/i.test(normalized);
     const asksInfo = /(\u0449\u043e|\u0447\u0442\u043e).{0,20}(\u0442\u0430\u043a\u0435|\u044d\u0442\u043e)|\bwhat\s+is\b/i.test(normalized);
-    return hasSolution && !asksInfo && (hasBusiness || hasForBusiness);
+    return hasSolution && !asksInfo && (hasBusiness || hasForBusiness || hasBuyVerb);
+}
+
+function detectCloseOrderIntent(message) {
+    const normalized = normalizeBusinessText(message);
+    return /(\u0445\u043e\u0447\u0443\s+.{0,24}(\u043a\u0443\u043f\u0438\u0442|\u0437\u0430\u043a\u0430\u0437|\u0437\u0430\u043c\u043e\u0432|\u0441\u0434\u0435\u043b\u0430\u0442\S*\s+\u0437\u0430\u043a\u0430\u0437|\u043d\u0430\u0447\u0430\u0442|\u043f\u0440\u0430\u0446\u044e\u0432|\u0440\u0430\u0431\u043e\u0442\u0430\u0442))|(\u0433\u043e\u0442\u043e\u0432\S*\s+.{0,20}(\u043a\u0443\u043f\u0438\u0442|\u0437\u0430\u043a\u0430\u0437|\u0437\u0430\u043c\u043e\u0432))|(\u043e\u0444\u043e\u0440\u043c\u043b\S*)|(\u0434\u0430\u0432\u0430\u0439\S*\s+\u0441\u0434\u0435\u043b\S*)|(\u043a\u0443\u043f\u043b\u044e)|(\u0437\u0430\u043c\u043e\u0432\u0438\u0442\u0438)|(\u0433\u043e\u0442\u043e\u0432\u0438\u0439\s+\u0437\u0430\u043c\u043e\u0432\u0438\u0442\u0438)|(\u0445\u043e\u0447\u0443\s+\u0437\u0430\u043c\u043e\u0432\u0438\u0442\u0438)|\b(ready\s+to\s+order|i\s+want\s+to\s+buy|i\s+want\s+to\s+order|let'?s\s+start)\b/i.test(normalized);
+}
+
+function detectWebsiteCommercialIntent(message) {
+    const normalized = normalizeBusinessText(message);
+    return /(\u0445\u043e\u0447\u0443|want|need|\u043d\u0443\u0436\u0435\u043d|\u043d\u0443\u0436\u043d\S*|\u043f\u043e\u0442\u0440\u0456\u0431\S*).{0,30}(\u0441\u0430\u0439\u0442|website|landing|\u043b\u0435\u043d\u0434\u0438\u043d\u0433)|(\u0441\u0430\u0439\u0442|website|landing|\u043b\u0435\u043d\u0434\u0438\u043d\u0433).{0,30}(\u0434\u043b\u044f|\u043f\u043e\u0434|\u043f\u0456\u0434|for)|(\u0441\u0430\u0439\u0442).{0,12}(crm|\u0441\u0440\u043c|\u0446\u0440\u043c)/i.test(normalized);
+}
+
+function detectRequestedServices(message) {
+    const normalized = normalizeBusinessText(message);
+    const services = [];
+    if (/(\u0441\u0430\u0439\u0442|website|landing|\u043b\u0435\u043d\u0434\u0438\u043d\u0433)/i.test(normalized)) services.push("website");
+    if (/(crm|\u0441\u0440\u043c|\u0446\u0440\u043c)/i.test(normalized)) services.push("crm");
+    if (/(telegram|\u0442\u0435\u043b\u0435\u0433\u0440\u0430\u043c|\u0431\u043e\u0442)/i.test(normalized)) services.push("telegram_bot");
+    if (/(ai|\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442|\u0430\u0441\u0438\u0441\u0442|\u0430\u0441\u0441\u0438\u0441\u0442)/i.test(normalized)) services.push("ai_consultant");
+    if (/(\u0430\u0432\u0442\u043e\u043c\u0430\u0442|automation|\u0438\u043d\u0442\u0435\u0433\u0440\u0430\u0446|\u0456\u043d\u0442\u0435\u0433\u0440\u0430\u0446)/i.test(normalized)) services.push("automation");
+    return [...new Set(services)];
+}
+
+function mergeRequestedServices(...sources) {
+    const result = [];
+    for (const source of sources) {
+        const items = Array.isArray(source)
+            ? source
+            : String(source || "").split(/[,\s]+/);
+        for (const item of items) {
+            const clean = cleanContactField(item, 40);
+            if (clean && !result.includes(clean)) result.push(clean);
+        }
+    }
+    return result.slice(0, 8);
 }
 
 function detectExampleRequest(message) {
@@ -662,6 +700,94 @@ function buildSolutionRequestReply(lang, message, context = {}) {
     return locale[domain] || locale.default;
 }
 
+function buildInitialSolutionRequestReply(lang, services = []) {
+    const labels = serviceLabels(services, lang);
+    if (lang === "en") {
+        if (services.includes("website")) {
+            return "Got it, you need a website. To suggest the right structure, it is important to understand the business area and the website goal: requests, catalog, sales, or service presentation. What kind of business do you have?";
+        }
+        return `Got it, you need ${labels || "a digital solution"}. To suggest the right setup, I first need to understand the business area. What kind of business do you have?`;
+    }
+    if (lang === "ru") {
+        if (services.includes("website")) {
+            return "\u041f\u043e\u043d\u044f\u043b, \u043d\u0443\u0436\u0435\u043d \u0441\u0430\u0439\u0442. \u0427\u0442\u043e\u0431\u044b \u043f\u0440\u0435\u0434\u043b\u043e\u0436\u0438\u0442\u044c \u0441\u0442\u0440\u0443\u043a\u0442\u0443\u0440\u0443, \u0432\u0430\u0436\u043d\u043e \u043f\u043e\u043d\u044f\u0442\u044c \u0441\u0444\u0435\u0440\u0443 \u0431\u0438\u0437\u043d\u0435\u0441\u0430 \u0438 \u0446\u0435\u043b\u044c \u0441\u0430\u0439\u0442\u0430: \u0437\u0430\u044f\u0432\u043a\u0438, \u043a\u0430\u0442\u0430\u043b\u043e\u0433, \u043f\u0440\u043e\u0434\u0430\u0436\u0438 \u0438\u043b\u0438 \u043f\u0440\u0435\u0437\u0435\u043d\u0442\u0430\u0446\u0438\u044f \u0443\u0441\u043b\u0443\u0433. \u041a\u0430\u043a\u043e\u0439 \u0443 \u0432\u0430\u0441 \u0431\u0438\u0437\u043d\u0435\u0441?";
+        }
+        return `\u041f\u043e\u043d\u044f\u043b, \u0432\u0430\u043c \u043d\u0443\u0436\u0435\u043d ${labels || "\u0446\u0438\u0444\u0440\u043e\u0432\u043e\u0439 \u0438\u043d\u0441\u0442\u0440\u0443\u043c\u0435\u043d\u0442"}. \u0427\u0442\u043e\u0431\u044b \u043f\u0440\u0435\u0434\u043b\u043e\u0436\u0438\u0442\u044c \u043d\u043e\u0440\u043c\u0430\u043b\u044c\u043d\u0443\u044e \u0441\u0432\u044f\u0437\u043a\u0443, \u0441\u043d\u0430\u0447\u0430\u043b\u0430 \u043d\u0443\u0436\u043d\u043e \u043f\u043e\u043d\u044f\u0442\u044c \u0441\u0444\u0435\u0440\u0443. \u041a\u0430\u043a\u043e\u0439 \u0443 \u0432\u0430\u0441 \u0431\u0438\u0437\u043d\u0435\u0441?`;
+    }
+    if (services.includes("website")) {
+        return "\u0417\u0440\u043e\u0437\u0443\u043c\u0456\u0432, \u043f\u043e\u0442\u0440\u0456\u0431\u0435\u043d \u0441\u0430\u0439\u0442. \u0429\u043e\u0431 \u0437\u0430\u043f\u0440\u043e\u043f\u043e\u043d\u0443\u0432\u0430\u0442\u0438 \u0441\u0442\u0440\u0443\u043a\u0442\u0443\u0440\u0443, \u0432\u0430\u0436\u043b\u0438\u0432\u043e \u0437\u0440\u043e\u0437\u0443\u043c\u0456\u0442\u0438 \u0441\u0444\u0435\u0440\u0443 \u0431\u0456\u0437\u043d\u0435\u0441\u0443 \u0456 \u043c\u0435\u0442\u0443 \u0441\u0430\u0439\u0442\u0443: \u0437\u0430\u044f\u0432\u043a\u0438, \u043a\u0430\u0442\u0430\u043b\u043e\u0433, \u043f\u0440\u043e\u0434\u0430\u0436\u0456 \u0447\u0438 \u043f\u0440\u0435\u0437\u0435\u043d\u0442\u0430\u0446\u0456\u044f \u043f\u043e\u0441\u043b\u0443\u0433. \u042f\u043a\u0438\u0439 \u0443 \u0432\u0430\u0441 \u0431\u0456\u0437\u043d\u0435\u0441?";
+    }
+    return `\u0417\u0440\u043e\u0437\u0443\u043c\u0456\u0432, \u0432\u0430\u043c \u043f\u043e\u0442\u0440\u0456\u0431\u0435\u043d ${labels || "\u0446\u0438\u0444\u0440\u043e\u0432\u0438\u0439 \u0456\u043d\u0441\u0442\u0440\u0443\u043c\u0435\u043d\u0442"}. \u0429\u043e\u0431 \u0437\u0430\u043f\u0440\u043e\u043f\u043e\u043d\u0443\u0432\u0430\u0442\u0438 \u043d\u043e\u0440\u043c\u0430\u043b\u044c\u043d\u0443 \u0437\u0432'\u044f\u0437\u043a\u0443, \u0441\u043f\u043e\u0447\u0430\u0442\u043a\u0443 \u043f\u043e\u0442\u0440\u0456\u0431\u043d\u043e \u0437\u0440\u043e\u0437\u0443\u043c\u0456\u0442\u0438 \u0441\u0444\u0435\u0440\u0443. \u042f\u043a\u0438\u0439 \u0443 \u0432\u0430\u0441 \u0431\u0456\u0437\u043d\u0435\u0441?`;
+}
+
+function serviceLabels(services, lang) {
+    const labels = {
+        uk: {
+            website: "\u0441\u0430\u0439\u0442",
+            crm: "CRM",
+            telegram_bot: "Telegram-\u0431\u043e\u0442",
+            ai_consultant: "AI-\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u043d\u0442",
+            automation: "\u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0437\u0430\u0446\u0456\u044e"
+        },
+        ru: {
+            website: "\u0441\u0430\u0439\u0442",
+            crm: "CRM",
+            telegram_bot: "Telegram-\u0431\u043e\u0442",
+            ai_consultant: "AI-\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u043d\u0442",
+            automation: "\u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0437\u0430\u0446\u0438\u044e"
+        },
+        en: {
+            website: "website",
+            crm: "CRM",
+            telegram_bot: "Telegram bot",
+            ai_consultant: "AI consultant",
+            automation: "automation"
+        }
+    };
+    const locale = labels[lang] || labels.uk;
+    const names = mergeRequestedServices(services).map((service) => locale[service] || service);
+    const separator = lang === "en" ? " and " : lang === "ru" ? " \u0438 " : " \u0456 ";
+    return names.join(separator);
+}
+
+function buildCloseOrderReply(lang, context = {}) {
+    const name = cleanContactField(context.userName, 80);
+    const business = cleanContactField(context.businessDescription, 160);
+    const services = serviceLabels(context.requestedServices, lang);
+    const hasKnownContext = business || services;
+
+    if (lang === "en") {
+        if (hasKnownContext) {
+            return `Great${name ? `, ${name}` : ""}. I understand: you need ${services || "a digital solution"}${business ? ` for ${business}` : ""}. Please leave a convenient contact: Telegram, phone, or email, and we can discuss the details.`;
+        }
+        return "Great, then we can move to a request. Please leave a convenient contact: Telegram, phone, or email, and briefly write what you want to order: a website, CRM, Telegram bot, or AI consultant.";
+    }
+
+    if (lang === "ru") {
+        if (hasKnownContext) {
+            return `\u041e\u0442\u043b\u0438\u0447\u043d\u043e${name ? `, ${name}` : ""}. \u042f \u043f\u043e\u043d\u044f\u043b: \u0432\u0430\u043c \u043d\u0443\u0436\u0435\u043d ${services || "\u0446\u0438\u0444\u0440\u043e\u0432\u043e\u0439 \u0438\u043d\u0441\u0442\u0440\u0443\u043c\u0435\u043d\u0442"}${business ? ` \u0434\u043b\u044f ${business}` : ""}. \u041e\u0441\u0442\u0430\u0432\u044c\u0442\u0435, \u043f\u043e\u0436\u0430\u043b\u0443\u0439\u0441\u0442\u0430, \u0443\u0434\u043e\u0431\u043d\u044b\u0439 \u043a\u043e\u043d\u0442\u0430\u043a\u0442: Telegram, \u0442\u0435\u043b\u0435\u0444\u043e\u043d \u0438\u043b\u0438 email — \u0438 \u043c\u044b \u0441\u043c\u043e\u0436\u0435\u043c \u043e\u0431\u0441\u0443\u0434\u0438\u0442\u044c \u0434\u0435\u0442\u0430\u043b\u0438.`;
+        }
+        return "\u041e\u0442\u043b\u0438\u0447\u043d\u043e, \u0442\u043e\u0433\u0434\u0430 \u043c\u043e\u0436\u0435\u043c \u043f\u0435\u0440\u0435\u0439\u0442\u0438 \u043a \u0437\u0430\u044f\u0432\u043a\u0435. \u041e\u0441\u0442\u0430\u0432\u044c\u0442\u0435, \u043f\u043e\u0436\u0430\u043b\u0443\u0439\u0441\u0442\u0430, \u0443\u0434\u043e\u0431\u043d\u044b\u0439 \u043a\u043e\u043d\u0442\u0430\u043a\u0442: Telegram, \u0442\u0435\u043b\u0435\u0444\u043e\u043d \u0438\u043b\u0438 email — \u0438 \u043a\u0440\u0430\u0442\u043a\u043e \u043d\u0430\u043f\u0438\u0448\u0438\u0442\u0435, \u0447\u0442\u043e \u0438\u043c\u0435\u043d\u043d\u043e \u0445\u043e\u0442\u0438\u0442\u0435 \u0437\u0430\u043a\u0430\u0437\u0430\u0442\u044c: \u0441\u0430\u0439\u0442, CRM, Telegram-\u0431\u043e\u0442 \u0438\u043b\u0438 AI-\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u043d\u0442.";
+    }
+
+    if (hasKnownContext) {
+        return `\u0427\u0443\u0434\u043e\u0432\u043e${name ? `, ${name}` : ""}. \u042f \u0437\u0440\u043e\u0437\u0443\u043c\u0456\u0432: \u0432\u0430\u043c \u043f\u043e\u0442\u0440\u0456\u0431\u0435\u043d ${services || "\u0446\u0438\u0444\u0440\u043e\u0432\u0438\u0439 \u0456\u043d\u0441\u0442\u0440\u0443\u043c\u0435\u043d\u0442"}${business ? ` \u0434\u043b\u044f ${business}` : ""}. \u0417\u0430\u043b\u0438\u0448\u0442\u0435, \u0431\u0443\u0434\u044c \u043b\u0430\u0441\u043a\u0430, \u0437\u0440\u0443\u0447\u043d\u0438\u0439 \u043a\u043e\u043d\u0442\u0430\u043a\u0442: Telegram, \u0442\u0435\u043b\u0435\u0444\u043e\u043d \u0430\u0431\u043e email — \u0456 \u043c\u0438 \u0437\u043c\u043e\u0436\u0435\u043c\u043e \u043e\u0431\u0433\u043e\u0432\u043e\u0440\u0438\u0442\u0438 \u0434\u0435\u0442\u0430\u043b\u0456.`;
+    }
+    return "\u0427\u0443\u0434\u043e\u0432\u043e, \u0442\u043e\u0434\u0456 \u043c\u043e\u0436\u0435\u043c\u043e \u043f\u0435\u0440\u0435\u0439\u0442\u0438 \u0434\u043e \u0437\u0430\u044f\u0432\u043a\u0438. \u0417\u0430\u043b\u0438\u0448\u0442\u0435, \u0431\u0443\u0434\u044c \u043b\u0430\u0441\u043a\u0430, \u0437\u0440\u0443\u0447\u043d\u0438\u0439 \u043a\u043e\u043d\u0442\u0430\u043a\u0442: Telegram, \u0442\u0435\u043b\u0435\u0444\u043e\u043d \u0430\u0431\u043e email — \u0456 \u043a\u043e\u0440\u043e\u0442\u043a\u043e \u043d\u0430\u043f\u0438\u0448\u0456\u0442\u044c, \u0449\u043e \u0441\u0430\u043c\u0435 \u0445\u043e\u0447\u0435\u0442\u0435 \u0437\u0430\u043c\u043e\u0432\u0438\u0442\u0438: \u0441\u0430\u0439\u0442, CRM, Telegram-\u0431\u043e\u0442 \u0447\u0438 AI-\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u043d\u0442.";
+}
+
+function buildContactReceivedReply(lang) {
+    if (lang === "en") return "Got it, thank you. Briefly describe what exactly needs to be prepared in the first version: website, CRM, Telegram bot, AI consultant, or their combination.";
+    if (lang === "ru") return "\u041f\u0440\u0438\u043d\u044f\u043b, \u0441\u043f\u0430\u0441\u0438\u0431\u043e. \u041a\u0440\u0430\u0442\u043a\u043e \u043e\u043f\u0438\u0448\u0438\u0442\u0435, \u0447\u0442\u043e \u0438\u043c\u0435\u043d\u043d\u043e \u043d\u0443\u0436\u043d\u043e \u043f\u043e\u0434\u0433\u043e\u0442\u043e\u0432\u0438\u0442\u044c \u0432 \u043f\u0435\u0440\u0432\u043e\u0439 \u0432\u0435\u0440\u0441\u0438\u0438: \u0441\u0430\u0439\u0442, CRM, Telegram-\u0431\u043e\u0442, AI-\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u043d\u0442 \u0438\u043b\u0438 \u0441\u0432\u044f\u0437\u043a\u0443 \u0438\u0437 \u043d\u0438\u0445.";
+    return "\u041f\u0440\u0438\u0439\u043d\u044f\u0432, \u0434\u044f\u043a\u0443\u044e. \u041a\u043e\u0440\u043e\u0442\u043a\u043e \u043e\u043f\u0438\u0448\u0456\u0442\u044c, \u0449\u043e \u0441\u0430\u043c\u0435 \u043f\u043e\u0442\u0440\u0456\u0431\u043d\u043e \u043f\u0456\u0434\u0433\u043e\u0442\u0443\u0432\u0430\u0442\u0438 \u0432 \u043f\u0435\u0440\u0448\u0456\u0439 \u0432\u0435\u0440\u0441\u0456\u0457: \u0441\u0430\u0439\u0442, CRM, Telegram-\u0431\u043e\u0442, AI-\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u043d\u0442 \u0447\u0438 \u0437\u0432'\u044f\u0437\u043a\u0443 \u0437 \u043d\u0438\u0445.";
+}
+
+function buildLeadRecordedReply(lang) {
+    if (lang === "en") return "Thank you, I have recorded the request. The Sildram Studio team will be able to contact you and discuss the details.";
+    if (lang === "ru") return "\u0421\u043f\u0430\u0441\u0438\u0431\u043e, \u0437\u0430\u044f\u0432\u043a\u0443 \u0437\u0430\u0444\u0438\u043a\u0441\u0438\u0440\u043e\u0432\u0430\u043b. \u041a\u043e\u043c\u0430\u043d\u0434\u0430 Sildram Studio \u0441\u043c\u043e\u0436\u0435\u0442 \u0441\u0432\u044f\u0437\u0430\u0442\u044c\u0441\u044f \u0441 \u0432\u0430\u043c\u0438 \u0438 \u043e\u0431\u0441\u0443\u0434\u0438\u0442\u044c \u0434\u0435\u0442\u0430\u043b\u0438.";
+    return "\u0414\u044f\u043a\u0443\u044e, \u0437\u0430\u044f\u0432\u043a\u0443 \u0437\u0430\u0444\u0456\u043a\u0441\u0443\u0432\u0430\u0432. \u041a\u043e\u043c\u0430\u043d\u0434\u0430 Sildram Studio \u0437\u043c\u043e\u0436\u0435 \u0437\u0432'\u044f\u0437\u0430\u0442\u0438\u0441\u044f \u0437 \u0432\u0430\u043c\u0438 \u0442\u0430 \u043e\u0431\u0433\u043e\u0432\u043e\u0440\u0438\u0442\u0438 \u0434\u0435\u0442\u0430\u043b\u0456.";
+}
+
 function buildChatReplyPayload(reply, options = {}) {
     const payload = {
         reply,
@@ -672,8 +798,50 @@ function buildChatReplyPayload(reply, options = {}) {
     if (options.intent) payload.intent = options.intent;
     if (options.businessDomain) payload.businessDomain = options.businessDomain;
     if (options.businessDescription) payload.businessDescription = options.businessDescription;
+    if (options.requestedServices) payload.requestedServices = options.requestedServices;
 
     return payload;
+}
+
+function detectLeadContact(message) {
+    const value = cleanContactField(message, 180);
+    const email = value.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+    if (email) return email[0];
+    const telegram = value.match(/@[A-Za-z0-9_]{4,32}/);
+    if (telegram) return telegram[0];
+    const phone = value.match(/(?:\+?\d[\s().-]*){7,18}/);
+    if (phone) return phone[0].trim();
+    if (/telegram|whatsapp|viber|\u0442\u0435\u043b\u0435\u0433\u0440\u0430\u043c/i.test(value) && value.length <= 120) return value;
+    return "";
+}
+
+function buildOrderTask(sessionContext, message = "") {
+    const services = serviceLabels(sessionContext.requestedServices, sessionContext.lang || "ru") || cleanContactField(sessionContext.userInterest, 120);
+    return [
+        services ? `Services: ${services}` : "",
+        sessionContext.businessDescription ? `Business: ${sessionContext.businessDescription}` : "",
+        message ? `Task: ${cleanContactField(message, 1000)}` : ""
+    ].filter(Boolean).join("\n");
+}
+
+async function createChatLeadFromSession(req, session, lang, sessionContext, task, history) {
+    const lead = {
+        id: `lead_${Date.now()}_${crypto.randomBytes(5).toString("hex")}`,
+        createdAt: new Date().toISOString(),
+        name: cleanContactField(sessionContext.userName || session.name, 120),
+        contact: cleanContactField(sessionContext.userContact || session.contact, 180),
+        interest: cleanContactField(serviceLabels(sessionContext.requestedServices, lang) || sessionContext.userInterest || session.interest, 180),
+        task: cleanContactField(task, 3000),
+        language: lang,
+        history: sanitizeLeadHistory(history)
+    };
+
+    if (!lead.contact || !lead.task) return false;
+
+    const stored = saveLead(lead);
+    await notifyLeadByEmail(lead);
+    updateLeadChatSession(req, lead);
+    return stored;
 }
 
 function buildCommercialConsultantReply(lang, message, blocks) {
@@ -1201,7 +1369,9 @@ async function handleChat(req, res) {
         intent: cleanContactField(body.intent, 40),
         expectedContext: normalizeExpectedContext(body.expectedContext || body.expects),
         businessDomain: cleanContactField(body.businessDomain, 80),
-        businessDescription: cleanContactField(body.businessDescription, 160)
+        businessDescription: cleanContactField(body.businessDescription, 160),
+        requestedServices: mergeRequestedServices(body.requestedServices, detectRequestedServices(body.message)),
+        lang
     };
 
     if (!message) {
@@ -1254,6 +1424,12 @@ async function handleChat(req, res) {
 
     const visitorSession = getOrCreateChatSession(visitor.visitorId);
     updateVisitorSession(visitorSession, sessionContext);
+    sessionContext.userName = sessionContext.userName || cleanContactField(visitorSession.name, 80);
+    sessionContext.userContact = sessionContext.userContact || cleanContactField(visitorSession.contact, 180);
+    sessionContext.userInterest = sessionContext.userInterest || cleanContactField(visitorSession.interest, 80);
+    sessionContext.businessDomain = sessionContext.businessDomain || cleanContactField(visitorSession.businessDomain, 80);
+    sessionContext.businessDescription = sessionContext.businessDescription || cleanContactField(visitorSession.businessDescription, 160);
+    sessionContext.requestedServices = mergeRequestedServices(sessionContext.requestedServices, visitorSession.requestedServices);
     const memoryHistory = getSessionHistoryForModel(visitorSession, 12);
     const contextHistory = mergeChatHistories(memoryHistory, cleanHistory, 12);
     const expectedContext = sessionContext.expectedContext || detectExpectedChatContext(contextHistory);
@@ -1282,6 +1458,65 @@ async function handleChat(req, res) {
         return;
     }
 
+    if (expectedContext === "CONTACT_CONTEXT") {
+        appendChatMessage(visitorSession, "user", message);
+        const contact = detectLeadContact(message);
+        if (!contact) {
+            const reply = buildCloseOrderReply(lang, sessionContext);
+            appendChatMessage(visitorSession, "assistant", reply);
+            saveChatSession(visitorSession);
+            sendJson(res, 200, buildChatReplyPayload(reply, {
+                nextExpects: "contact",
+                intent: "BUY_NOW",
+                requestedServices: sessionContext.requestedServices
+            }), chatHeaders);
+            return;
+        }
+
+        visitorSession.contact = contact;
+        sessionContext.userContact = contact;
+        const reply = buildContactReceivedReply(lang);
+        appendChatMessage(visitorSession, "assistant", reply);
+        saveChatSession(visitorSession);
+        sendJson(res, 200, buildChatReplyPayload(reply, {
+            nextExpects: "task",
+            intent: "BUY_NOW",
+            requestedServices: sessionContext.requestedServices
+        }), chatHeaders);
+        return;
+    }
+
+    if (expectedContext === "TASK_CONTEXT") {
+        appendChatMessage(visitorSession, "user", message);
+        if (!sessionContext.userContact && !visitorSession.contact) {
+            const reply = buildCloseOrderReply(lang, sessionContext);
+            appendChatMessage(visitorSession, "assistant", reply);
+            saveChatSession(visitorSession);
+            sendJson(res, 200, buildChatReplyPayload(reply, {
+                nextExpects: "contact",
+                intent: "BUY_NOW",
+                requestedServices: sessionContext.requestedServices
+            }), chatHeaders);
+            return;
+        }
+
+        const task = buildOrderTask(sessionContext, message);
+        await createChatLeadFromSession(req, visitorSession, lang, sessionContext, task, [
+            ...contextHistory,
+            { role: "user", content: message }
+        ]);
+        visitorSession.summary = cleanContactField(task, 800);
+        const reply = buildLeadRecordedReply(lang);
+        appendChatMessage(visitorSession, "assistant", reply);
+        saveChatSession(visitorSession);
+        sendJson(res, 200, buildChatReplyPayload(reply, {
+            nextExpects: "none",
+            intent: "LEAD_CREATED",
+            requestedServices: sessionContext.requestedServices
+        }), chatHeaders);
+        return;
+    }
+
     if (detectOffTopic(message) && !expectedContext && !detectBusinessContext(message) && !detectCommercialIntent(message)) {
         appendChatMessage(visitorSession, "user", message);
         sendJson(res, 200, {
@@ -1294,6 +1529,41 @@ async function handleChat(req, res) {
     }
 
     appendChatMessage(visitorSession, "user", message);
+
+    if (detectCloseOrderIntent(message) || sessionContext.intent === "BUY_NOW" || sessionContext.intent === "CLOSE_ORDER") {
+        sessionContext.requestedServices = mergeRequestedServices(sessionContext.requestedServices, detectRequestedServices(message));
+        updateVisitorSession(visitorSession, {
+            requestedServices: sessionContext.requestedServices,
+            businessDomain: sessionContext.businessDomain,
+            businessDescription: sessionContext.businessDescription
+        });
+        const contact = detectLeadContact(message);
+        if (contact) {
+            visitorSession.contact = contact;
+            sessionContext.userContact = contact;
+            const reply = buildContactReceivedReply(lang);
+            appendChatMessage(visitorSession, "assistant", reply);
+            saveChatSession(visitorSession);
+            sendJson(res, 200, buildChatReplyPayload(reply, {
+                nextExpects: "task",
+                intent: "BUY_NOW",
+                requestedServices: sessionContext.requestedServices
+            }), chatHeaders);
+            return;
+        }
+
+        const reply = buildCloseOrderReply(lang, sessionContext);
+        appendChatMessage(visitorSession, "assistant", reply);
+        saveChatSession(visitorSession);
+        sendJson(res, 200, buildChatReplyPayload(reply, {
+            nextExpects: "contact",
+            intent: "BUY_NOW",
+            businessDomain: sessionContext.businessDomain,
+            businessDescription: sessionContext.businessDescription,
+            requestedServices: sessionContext.requestedServices
+        }), chatHeaders);
+        return;
+    }
 
     if (
         sessionContext.intent === "SHOW_EXAMPLE"
@@ -1312,14 +1582,23 @@ async function handleChat(req, res) {
 
     if (sessionContext.intent === "SOLUTION_REQUEST" || detectSolutionRequest(message)) {
         const domain = resolveBusinessDomain(message, sessionContext);
-        const reply = buildSolutionRequestReply(lang, message, sessionContext);
+        const requestedServices = mergeRequestedServices(sessionContext.requestedServices, detectRequestedServices(message));
+        const reply = domain === "UNKNOWN_BUSINESS"
+            ? buildInitialSolutionRequestReply(lang, requestedServices)
+            : buildSolutionRequestReply(lang, message, { ...sessionContext, requestedServices });
+        updateVisitorSession(visitorSession, {
+            businessDomain: domain === "UNKNOWN_BUSINESS" ? sessionContext.businessDomain : domain,
+            businessDescription: domain === "UNKNOWN_BUSINESS" ? sessionContext.businessDescription : (sessionContext.businessDescription || cleanContactField(message, 160)),
+            requestedServices
+        });
         appendChatMessage(visitorSession, "assistant", reply);
         saveChatSession(visitorSession);
         sendJson(res, 200, buildChatReplyPayload(reply, {
             nextExpects: domain === "UNKNOWN_BUSINESS" ? "business_context" : "solution_details",
             intent: "SOLUTION_REQUEST",
             businessDomain: domain,
-            businessDescription: sessionContext.businessDescription || cleanContactField(message, 160)
+            businessDescription: sessionContext.businessDescription || (domain === "UNKNOWN_BUSINESS" ? "" : cleanContactField(message, 160)),
+            requestedServices
         }), chatHeaders);
         return;
     }
@@ -1333,13 +1612,21 @@ async function handleChat(req, res) {
     if (questionType === "BUSINESS_CONTEXT") {
         const domain = classifyBusinessDomain(message);
         const reply = buildBusinessContextReply(lang, message);
+        sessionContext.businessDomain = domain;
+        sessionContext.businessDescription = cleanContactField(message, 160);
+        updateVisitorSession(visitorSession, {
+            businessDomain: sessionContext.businessDomain,
+            businessDescription: sessionContext.businessDescription,
+            requestedServices: sessionContext.requestedServices
+        });
         appendChatMessage(visitorSession, "assistant", reply);
         saveChatSession(visitorSession);
         sendJson(res, 200, buildChatReplyPayload(reply, {
             nextExpects: "solution_details",
             intent: "BUSINESS_CONTEXT",
             businessDomain: domain,
-            businessDescription: cleanContactField(message, 160)
+            businessDescription: cleanContactField(message, 160),
+            requestedServices: sessionContext.requestedServices
         }), chatHeaders);
         return;
     }
@@ -1781,6 +2068,9 @@ function getOrCreateChatSession(visitorId) {
             name: "",
             contact: "",
             interest: "",
+            businessDomain: "",
+            businessDescription: "",
+            requestedServices: [],
             summary: "",
             messages: []
         };
@@ -1805,6 +2095,9 @@ function saveChatSession(session) {
         name: cleanContactField(session.name, 80),
         contact: cleanContactField(session.contact, 180),
         interest: cleanContactField(session.interest, 120),
+        businessDomain: cleanContactField(session.businessDomain, 80),
+        businessDescription: cleanContactField(session.businessDescription, 160),
+        requestedServices: mergeRequestedServices(session.requestedServices),
         summary: cleanContactField(session.summary, 800),
         messages: sanitizeStoredMessages(session.messages).slice(-30)
     };
@@ -1824,6 +2117,11 @@ function updateVisitorSession(session, context) {
     if (context.userName) session.name = cleanContactField(context.userName, 80);
     if (context.userContact) session.contact = cleanContactField(context.userContact, 180);
     if (context.userInterest) session.interest = cleanContactField(context.userInterest, 120);
+    if (context.businessDomain) session.businessDomain = cleanContactField(context.businessDomain, 80);
+    if (context.businessDescription) session.businessDescription = cleanContactField(context.businessDescription, 160);
+    if (context.requestedServices) {
+        session.requestedServices = mergeRequestedServices(session.requestedServices, context.requestedServices);
+    }
 }
 
 function appendChatMessage(session, role, content) {
