@@ -256,7 +256,7 @@ function detectCommercialIntent(message) {
 }
 
 function detectSolutionRequest(message) {
-    const normalized = normalizeSearchText(message);
+    const normalized = normalizeBusinessText(message);
     const hasSolution = /(crm|\u0441\u0440\u043c|\u0446\u0440\u043c|telegram|\u0442\u0435\u043b\u0435\u0433\u0440\u0430\u043c|\u0431\u043e\u0442|\u0441\u0430\u0439\u0442|website|ai|\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442)/i.test(normalized);
     const hasBusiness = detectKnownBusinessNiche(normalized);
     const hasForBusiness = /(\u0434\u043b\u044f|\u043f\u043e\u0434|\u043f\u0456\u0434|for)\s+.{2,80}/i.test(normalized);
@@ -265,12 +265,17 @@ function detectSolutionRequest(message) {
 }
 
 function detectExampleRequest(message) {
-    const normalized = normalizeSearchText(message);
-    return /(\u043f\u043e\u043a\u0430\u0436\w*\s+.{0,30}\u043f\u0440\u0438\u043c\u0435\u0440|\u043f\u0440\u0438\u043c\u0435\u0440\s+.{0,40}(\u0432\u043d\u0435\u0434\u0440|\u0446\u0440\u043c|\u0441\u0440\u043c|crm)|show\s+.{0,30}example|example\s+.{0,30}(crm|implementation))/i.test(normalized);
+    const normalized = normalizeBusinessText(message);
+    return /(\u043f\u043e\u043a\u0430\u0436\S*\s+.{0,30}\u043f\u0440\u0438\u043c\u0435\u0440|\u043f\u0440\u0438\u043c\u0435\u0440\s+.{0,40}(\u0432\u043d\u0435\u0434\u0440|\u0446\u0440\u043c|\u0441\u0440\u043c|crm)|show\s+.{0,30}example|example\s+.{0,30}(crm|implementation))/i.test(normalized);
+}
+
+function detectExampleConfirmation(message) {
+    const normalized = normalizeBusinessText(message);
+    return /^(yes|yes show|show|show example|ok show|okay show|\u0434\u0430|\u0434\u0430\s+\u043f\u043e\u043a\u0430\u0436\S*|\u0434\u0430\s+\u043f\u0440\u0438\u043c\u0435\u0440|\u043e\u043a\s+\u043f\u043e\u043a\u0430\u0436\S*|\u043f\u043e\u043a\u0430\u0436\S*|\u043f\u043e\u043a\u0430\u0436\S*\s+\u043f\u0440\u0438\u043c\u0435\u0440|\u0442\u0430\u043a|\u0442\u0430\u043a\s+\u043f\u043e\u043a\u0430\u0436\S*)$/.test(normalized);
 }
 
 function classifyBusinessQuestion(message) {
-    const normalized = normalizeSearchText(message);
+    const normalized = normalizeBusinessText(message);
     const terms = normalized.split(/\s+/).filter(Boolean);
     const hasService = hasBusinessServiceSignal(normalized);
     const hasInfoIntent = /(^|\s)(what|how|why|when|where|difference|versus|vs|explain|tell)(\s|$)/i.test(normalized)
@@ -280,11 +285,32 @@ function classifyBusinessQuestion(message) {
 
     if (detectCommercialIntent(message)) return "COMMERCIAL";
     if (detectBusinessContext(normalized)) return "BUSINESS_CONTEXT";
+    if (detectKnownBusinessNiche(normalized)) return "BUSINESS_CONTEXT";
     if (hasService && hasInfoIntent) return "INFORMATIONAL";
     if (detectOffTopic(message)) return "OFF_TOPIC";
     if (hasService && terms.length <= 2) return "CLARIFICATION";
 
     return hasService ? "INFORMATIONAL" : "OFF_TOPIC";
+}
+
+function normalizeExpectedContext(value) {
+    const normalized = String(value || "").trim().toLowerCase();
+    const map = {
+        name: "NAME_CONTEXT",
+        business_context: "BUSINESS_CONTEXT",
+        task_context: "TASK_CONTEXT",
+        task: "TASK_CONTEXT",
+        solution_details: "SOLUTION_DETAILS",
+        contact_context: "CONTACT_CONTEXT",
+        contact: "CONTACT_CONTEXT",
+        example_confirmation: "EXAMPLE_CONFIRMATION",
+        none: ""
+    };
+    return map[normalized] || String(value || "").trim();
+}
+
+function normalizeBusinessText(value) {
+    return normalizeSearchText(value).toLowerCase();
 }
 
 function detectExpectedChatContext(history) {
@@ -296,26 +322,39 @@ function detectExpectedChatContext(history) {
     if (!text) return "";
 
     if (
-        /(\u043a\u0430\u043a\u043e\u0439\s+\u0443\s+\u0432\u0430\u0441\s+\u0431\u0438\u0437\u043d\u0435\u0441|\u0440\u0430\u0441\u0441\u043a\u0430\u0436\w*\s+.{0,24}\u0431\u0438\u0437\u043d\u0435\u0441|\u0447\u0435\u043c\s+\u0437\u0430\u043d\u0438\u043c\u0430\w*\s+\u043a\u043e\u043c\u043f\u0430\u043d|\u043a\u0430\u043a\u0430\u044f\s+\u0441\u0444\u0435\u0440\u0430\s+\u0431\u0438\u0437\u043d\u0435\u0441)/i.test(text)
-        || /(\u044f\u043a\u0438\u0439\s+\u0443\s+\u0432\u0430\u0441\s+\u0431\u0456\u0437\u043d\u0435\u0441|\u0440\u043e\u0437\u043a\u0430\u0436\w*\s+.{0,24}\u0431\u0456\u0437\u043d\u0435\u0441|\u0447\u0438\u043c\s+\u0437\u0430\u0439\u043c\u0430\w*\s+\u043a\u043e\u043c\u043f\u0430\u043d|\u044f\u043a\u0430\s+\u0441\u0444\u0435\u0440\u0430\s+\u0431\u0456\u0437\u043d\u0435\u0441)/i.test(text)
+        /(\u043a\u0430\u043a\u043e\u0439\s+\u0443\s+\u0432\u0430\u0441\s+\u0431\u0438\u0437\u043d\u0435\u0441|\u0440\u0430\u0441\u0441\u043a\u0430\u0436\S*\s+.{0,24}\u0431\u0438\u0437\u043d\u0435\u0441|\u0447\u0435\u043c\s+\u0437\u0430\u043d\u0438\u043c\u0430\S*\s+\u043a\u043e\u043c\u043f\u0430\u043d|\u043a\u0430\u043a\u0430\u044f\s+\u0441\u0444\u0435\u0440\u0430\s+\u0431\u0438\u0437\u043d\u0435\u0441)/i.test(text)
+        || /(\u044f\u043a\u0438\u0439\s+\u0443\s+\u0432\u0430\u0441\s+\u0431\u0456\u0437\u043d\u0435\u0441|\u0440\u043e\u0437\u043a\u0430\u0436\S*\s+.{0,24}\u0431\u0456\u0437\u043d\u0435\u0441|\u0447\u0438\u043c\s+\u0437\u0430\u0439\u043c\u0430\S*\s+\u043a\u043e\u043c\u043f\u0430\u043d|\u044f\u043a\u0430\s+\u0441\u0444\u0435\u0440\u0430\s+\u0431\u0456\u0437\u043d\u0435\u0441)/i.test(text)
         || /(what\s+(kind\s+of\s+)?business\s+(do\s+you\s+have|this\s+is\s+for)|tell\s+me\s+.{0,24}business|what\s+does\s+your\s+company\s+do|what\s+business\s+do\s+you\s+have)/i.test(text)
     ) {
         return "BUSINESS_CONTEXT";
     }
 
-    if (/(\u043e\u043f\u0438\u0448\w*\s+\u0437\u0430\u0434\u0430\u0447|\u0447\u0442\u043e\s+\u043d\u0443\u0436\u043d\u043e\s+\u0430\u0432\u0442\u043e\u043c\u0430\u0442|\u0449\u043e\s+\u043f\u043e\u0442\u0440\u0456\u0431\u043d\u043e\s+\u0430\u0432\u0442\u043e\u043c\u0430\u0442|describe\s+the\s+task|what\s+should\s+be\s+automated)/i.test(text)) {
+    if (/(\u043e\u043f\u0438\u0448\S*\s+\u0437\u0430\u0434\u0430\u0447|\u0447\u0442\u043e\s+\u043d\u0443\u0436\u043d\u043e\s+\u0430\u0432\u0442\u043e\u043c\u0430\u0442|\u0449\u043e\s+\u043f\u043e\u0442\u0440\u0456\u0431\u043d\u043e\s+\u0430\u0432\u0442\u043e\u043c\u0430\u0442|describe\s+the\s+task|what\s+should\s+be\s+automated)/i.test(text)) {
         return "TASK_CONTEXT";
     }
 
-    if (/(\u0443\u0434\u043e\u0431\u043d\w*\s+\u043a\u043e\u043d\u0442\u0430\u043a\u0442|\u0437\u0440\u0443\u0447\u043d\w*\s+\u043a\u043e\u043d\u0442\u0430\u043a\u0442|leave\s+a\s+convenient\s+contact|telegram\s+phone\s+or\s+email)/i.test(text)) {
+    if (/(\u0443\u0434\u043e\u0431\u043d\S*\s+\u043a\u043e\u043d\u0442\u0430\u043a\u0442|\u0437\u0440\u0443\u0447\u043d\S*\s+\u043a\u043e\u043d\u0442\u0430\u043a\u0442|leave\s+a\s+convenient\s+contact|telegram\s+phone\s+or\s+email)/i.test(text)) {
         return "CONTACT_CONTEXT";
     }
 
     return "";
 }
 
+function expectsExampleFromHistory(history) {
+    const lastAssistant = [...(Array.isArray(history) ? history : [])]
+        .reverse()
+        .find((item) => item && item.role === "assistant" && item.content);
+    const text = normalizeBusinessText(lastAssistant?.content || "");
+    if (!text) return false;
+
+    return (
+        (text.includes("\u0445\u043e\u0442\u0438\u0442\u0435") || text.includes("\u0445\u043e\u0447\u0435\u0442\u0435") || text.includes("would you like"))
+        && (text.includes("\u043f\u043e\u043a\u0430\u0436") || text.includes("show"))
+    ) || /(\u043f\u043e\u043a\u0430\u0437\u0430\u0442\S*\s+.{0,30}\u043f\u0440\u0438\u043c\u0435\u0440|show\s+an\s+example|show\s+a\s+simple)/i.test(text);
+}
+
 function detectBusinessContext(value) {
-    const normalized = normalizeSearchText(value);
+    const normalized = normalizeBusinessText(value);
     if (!hasBusinessContextIntro(normalized)) return false;
     if (detectKnownBusinessNiche(normalized)) return true;
 
@@ -330,11 +369,11 @@ function detectBusinessContext(value) {
 }
 
 function hasBusinessContextIntro(normalized) {
-    return /(^|\s)(\u0443\s+\u043c\u0435\u043d\u044f\s+\u0435\u0441\u0442\u044c|\u0443\s+\u043d\u0430\u0441\s+\u0435\u0441\u0442\u044c|\u0443\s+\u043c\u0435\u043d\u044f|\u0443\s+\u043d\u0430\u0441|\u043c\u043e\u0439\s+\u0431\u0438\u0437\u043d\u0435\u0441|\u043c\u043e\u044f\s+\u043a\u043e\u043c\u043f\u0430\u043d\u0438\u044f|\u0443\s+\u043c\u0435\u043d\u0435|\u043c\u0456\u0439\s+\u0431\u0456\u0437\u043d\u0435\u0441|\u043c\u043e\u044f\s+\u043a\u043e\u043c\u043f\u0430\u043d\u0456\u044f|my\s+business\s+is|my\s+business|my\s+company|i\s+have\s+a|i\s+have|we\s+have\s+a|we\s+have)\b/i.test(normalized);
+    return /(^|\s)(\u0443\s+\u043c\u0435\u043d\u044f\s+\u0435\u0441\u0442\u044c|\u0443\s+\u043d\u0430\u0441\s+\u0435\u0441\u0442\u044c|\u0443\s+\u043c\u0435\u043d\u044f|\u0443\s+\u043d\u0430\u0441|\u043c\u043e\u0439\s+\u0431\u0438\u0437\u043d\u0435\u0441|\u043c\u043e\u044f\s+\u043a\u043e\u043c\u043f\u0430\u043d\u0438\u044f|\u0443\s+\u043c\u0435\u043d\u0435|\u043c\u0456\u0439\s+\u0431\u0456\u0437\u043d\u0435\u0441|\u043c\u043e\u044f\s+\u043a\u043e\u043c\u043f\u0430\u043d\u0456\u044f|my\s+business\s+is|my\s+business|my\s+company|i\s+have\s+a|i\s+have|we\s+have\s+a|we\s+have)(?=\s|$)/i.test(normalized);
 }
 
 function detectKnownBusinessNiche(normalized) {
-    return /(\u0434\u043e\u0441\u0442\u0430\u0432\u043a\w*\s+\u0435\u0434\u044b|\u0434\u043e\u0441\u0442\u0430\u0432\u043a\w*\s+\u0457\u0436\u0456|food delivery|\u0440\u0435\u0441\u0442\u043e\u0440\u0430\u043d|restaurant|\u043a\u0430\u0444\u0435|cafe|\u0438\u043d\u0442\u0435\u0440\u043d\u0435\u0442[-\s]?\u043c\u0430\u0433\u0430\u0437\u0438\u043d|\u0456\u043d\u0442\u0435\u0440\u043d\u0435\u0442[-\s]?\u043c\u0430\u0433\u0430\u0437\u0438\u043d|online store|\u043c\u0430\u0433\u0430\u0437\u0438\u043d\s+\u043e\u0434\u0435\u0436\u0434|\u043c\u0430\u0433\u0430\u0437\u0438\u043d\s+\u043e\u0434\u044f\u0433\u0443|clothing store|\u0441\u0442\u043e\u043c\u0430\u0442\u043e\u043b\u043e\u0433|\u0441\u0442\u043e\u043c\u0430\u0442\u043e\u043b\u043e\u0433\u0456\u044f|dental clinic|\u0441\u0430\u043b\u043e\u043d\s+\u043a\u0440\u0430\u0441\u043e\u0442|\u0441\u0430\u043b\u043e\u043d\s+\u043a\u0440\u0430\u0441\u0438|beauty salon|\u0430\u0432\u0442\u043e\u0441\u0435\u0440\u0432\u0438\u0441|\u0430\u0432\u0442\u043e\u0441\u0435\u0440\u0432\u0456\u0441|car service|\u0448\u043a\u043e\u043b|\u043a\u0443\u0440\u0441|school|courses|\u0443\u0441\u043b\u0443\u0433|\u043f\u043e\u0441\u043b\u0443\u0433|services|\u043f\u0440\u043e\u0438\u0437\u0432\u043e\u0434\u0441\u0442\u0432|\u0432\u0438\u0440\u043e\u0431\u043d\u0438\u0446\u0442\u0432|production)/i.test(normalized);
+    return /(\u0434\u043e\u0441\u0442\u0430\u0432\u043a\S*\s+\u0435\u0434\u044b|\u0434\u043e\u0441\u0442\u0430\u0432\u043a\S*\s+\u0457\u0436\u0456|food delivery|\u0440\u0435\u0441\u0442\u043e\u0440\u0430\u043d|restaurant|\u043a\u0430\u0444\u0435|cafe|\u0438\u043d\u0442\u0435\u0440\u043d\u0435\u0442[-\s]?\u043c\u0430\u0433\u0430\u0437\u0438\u043d|\u0456\u043d\u0442\u0435\u0440\u043d\u0435\u0442[-\s]?\u043c\u0430\u0433\u0430\u0437\u0438\u043d|online store|\u043c\u0430\u0433\u0430\u0437\u0438\u043d\s+\u043e\u0434\u0435\u0436\u0434|\u043c\u0430\u0433\u0430\u0437\u0438\u043d\s+\u043e\u0434\u044f\u0433\u0443|clothing store|\u0441\u0442\u043e\u043c\u0430\u0442\u043e\u043b\u043e\u0433|\u0441\u0442\u043e\u043c\u0430\u0442\u043e\u043b\u043e\u0433\u0456\u044f|dental clinic|\u0441\u0430\u043b\u043e\u043d\s+\u043a\u0440\u0430\u0441\u043e\u0442|\u0441\u0430\u043b\u043e\u043d\s+\u043a\u0440\u0430\u0441\u0438|beauty salon|\u0430\u0432\u0442\u043e\u0441\u0435\u0440\u0432\u0438\u0441|\u0430\u0432\u0442\u043e\u0441\u0435\u0440\u0432\u0456\u0441|car service|\u0448\u043a\u043e\u043b|\u043a\u0443\u0440\u0441|school|courses|\u0443\u0441\u043b\u0443\u0433|\u043f\u043e\u0441\u043b\u0443\u0433|services|\u043f\u0440\u043e\u0438\u0437\u0432\u043e\u0434\u0441\u0442\u0432|\u0432\u0438\u0440\u043e\u0431\u043d\u0438\u0446\u0442\u0432|production)/i.test(normalized);
 }
 
 function hasBusinessServiceSignal(normalized) {
@@ -504,16 +543,16 @@ function buildInformationalConsultantReply(lang, message, blocks) {
 }
 
 function classifyBusinessDomain(message) {
-    const normalized = normalizeSearchText(message);
+    const normalized = normalizeBusinessText(message);
     const domains = [
         ["ECOMMERCE_RETAIL", /(\u0438\u043d\u0442\u0435\u0440\u043d\u0435\u0442[-\s]?\u043c\u0430\u0433\u0430\u0437\u0438\u043d|\u0456\u043d\u0442\u0435\u0440\u043d\u0435\u0442[-\s]?\u043c\u0430\u0433\u0430\u0437\u0438\u043d|\u043c\u0430\u0433\u0430\u0437\u0438\u043d\s+\u043e\u0434\u0435\u0436\u0434|\u043c\u0430\u0433\u0430\u0437\u0438\u043d\s+\u043e\u0431\u0443\u0432|\u043c\u0430\u0433\u0430\u0437\u0438\u043d\s+\u0442\u0435\u0445\u043d\u0438\u043a|\u043c\u0430\u0433\u0430\u0437\u0438\u043d\s+\u043e\u0434\u044f\u0433|\u0437\u043e\u043e\u043c\u0430\u0433\u0430\u0437\u0438\u043d|\u043a\u043e\u0441\u043c\u0435\u0442\u0438\u043a|\u0442\u043e\u0432\u0430\u0440|\u043c\u0430\u0440\u043a\u0435\u0442\u043f\u043b\u0435\u0439\u0441|online store|clothing store|\bshop\b|\bstore\b)/i],
-        ["FOOD_HOSPITALITY", /(\u0434\u043e\u0441\u0442\u0430\u0432\u043a\w*\s+\u0435\u0434\u044b|\u0434\u043e\u0441\u0442\u0430\u0432\u043a\w*\s+\u0457\u0436\u0456|\u0440\u0435\u0441\u0442\u043e\u0440\u0430\u043d|\u043a\u0430\u0444\u0435|\u043a\u043e\u0444\u0435\u0439\u043d|\u0431\u0430\u0440|\u043f\u0438\u0446\u0446\u0435\u0440|\u043f\u0456\u0446\u0435\u0440|\u0441\u0443\u0448\u0438|\u0441\u0443\u0448\u0456|\u0444\u0430\u0441\u0442\u0444\u0443\u0434|\u043a\u0435\u0439\u0442\u0435\u0440\u0438\u043d\u0433|\u0433\u043e\u0442\u0435\u043b|hotel|food delivery|restaurant|cafe)/i],
+        ["FOOD_HOSPITALITY", /(\u0434\u043e\u0441\u0442\u0430\u0432\u043a\S*\s+\u0435\u0434\u044b|\u0434\u043e\u0441\u0442\u0430\u0432\u043a\S*\s+\u0457\u0436\u0456|\u0440\u0435\u0441\u0442\u043e\u0440\u0430\u043d|\u043a\u0430\u0444\u0435|\u043a\u043e\u0444\u0435\u0439\u043d|\u0431\u0430\u0440|\u043f\u0438\u0446\u0446\u0435\u0440|\u043f\u0456\u0446\u0435\u0440|\u0441\u0443\u0448\u0438|\u0441\u0443\u0448\u0456|\u0444\u0430\u0441\u0442\u0444\u0443\u0434|\u043a\u0435\u0439\u0442\u0435\u0440\u0438\u043d\u0433|\u0433\u043e\u0442\u0435\u043b|hotel|food delivery|restaurant|cafe)/i],
         ["MEDICAL_HEALTH", /(\u0441\u0442\u043e\u043c\u0430\u0442\u043e\u043b\u043e\u0433|\u043a\u043b\u0438\u043d\u0438\u043a|\u043a\u043b\u0456\u043d\u0456\u043a|\u0432\u0440\u0430\u0447|\u043b\u0456\u043a\u0430\u0440|\u043c\u0435\u0434\u0438\u0446\u0438\u043d|\u043a\u043e\u0441\u043c\u0435\u0442\u043e\u043b\u043e\u0433|\u0430\u043d\u0430\u043b\u0438\u0437|\u0430\u043d\u0430\u043b\u0456\u0437|\u043b\u0430\u0431\u043e\u0440\u0430\u0442\u043e\u0440|\u043c\u0430\u0441\u0441\u0430\u0436|\u0440\u0435\u0430\u0431\u0438\u043b|\u0440\u0435\u0430\u0431\u0456\u043b|dental clinic|\bclinic\b|\bdoctor\b|healthcare)/i],
         ["BEAUTY_WELLNESS", /(\u0441\u0430\u043b\u043e\u043d\s+\u043a\u0440\u0430\u0441\u043e\u0442|\u0441\u0430\u043b\u043e\u043d\s+\u043a\u0440\u0430\u0441\u0438|\u0431\u0430\u0440\u0431\u0435\u0440|\u043c\u0430\u043d\u0438\u043a\u044e\u0440|\u043c\u0430\u043d\u0456\u043a\u044e\u0440|\u043a\u043e\u0441\u043c\u0435\u0442\u043e\u043b\u043e\u0433|\u0441\u043f\u0430|\u0444\u0438\u0442\u043d\u0435\u0441|\u0444\u0456\u0442\u043d\u0435\u0441|\u0442\u0440\u0435\u043d\u0430\u0436\u0435\u0440|\u0439\u043e\u0433\u0430|beauty salon|barber|spa|\bgym\b)/i],
         ["EDUCATION", /(\u0448\u043a\u043e\u043b|\u043a\u0443\u0440\u0441|\u043e\u043d\u043b\u0430\u0439\u043d[-\s]?\u043a\u0443\u0440\u0441|\u0440\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440|\u044f\u0437\u044b\u043a\u043e\u0432|\u043c\u043e\u0432\u043d|\u043e\u0431\u0443\u0447\u0435\u043d|\u043d\u0430\u0432\u0447\u0430\u043d|\u0442\u0440\u0435\u043d\u0438\u043d\u0433|\u0442\u0440\u0435\u043d\u0456\u043d\u0433|academy|school|courses|tutor)/i],
         ["LEGAL_FINANCE", /(\u044e\u0440\u0438\u0441\u0442|\u0430\u0434\u0432\u043e\u043a\u0430\u0442|\u044e\u0440\u0438\u0434\u0438\u0447|\u0431\u0443\u0445\u0433\u0430\u043b\u0442\u0435\u0440|\u0430\u0443\u0434\u0438\u0442|\u043d\u0430\u043b\u043e\u0433|\u043f\u043e\u0434\u0430\u0442\u043a|\u0444\u0438\u043d\u0430\u043d\u0441|\u0444\u0456\u043d\u0430\u043d\u0441|lawyer|legal|accounting|finance)/i],
         ["REAL_ESTATE_CONSTRUCTION", /(\u043d\u0435\u0434\u0432\u0438\u0436|\u043d\u0435\u0440\u0443\u0445\u043e\u043c|\u0440\u0438\u0435\u043b\u0442\u043e\u0440|\u0440\u0456\u0435\u043b\u0442\u043e\u0440|\u0437\u0430\u0441\u0442\u0440\u043e\u0439|\u0437\u0430\u0431\u0443\u0434\u043e\u0432|\u0441\u0442\u0440\u043e\u0438\u0442\u0435\u043b|\u0431\u0443\u0434\u0456\u0432|\u0440\u0435\u043c\u043e\u043d\u0442|\u0434\u0438\u0437\u0430\u0439\u043d\s+\u0438\u043d\u0442\u0435\u0440|\u0434\u0438\u0437\u0430\u0439\u043d\s+\u0456\u043d\u0442\u0435\u0440|\u043c\u0435\u0431\u0435\u043b|\u043c\u0435\u0431\u043b|\u043e\u043a\u043d\u0430|\u0432\u0456\u043a\u043d\u0430|\u0434\u0432\u0435\u0440|real estate|construction|renovation)/i],
-        ["AUTO_TRANSPORT", /(\u0430\u0432\u0442\u043e\u0441\u0435\u0440\u0432\u0438\u0441|\u0430\u0432\u0442\u043e\u0441\u0435\u0440\u0432\u0456\u0441|\u0448\u0438\u043d\u043e\u043c\u043e\u043d\u0442\u0430\u0436|\u0430\u0432\u0442\u043e\u043c\u043e\u0439|\u0430\u0440\u0435\u043d\u0434\w*\s+\u0430\u0432\u0442\u043e|\u043e\u0440\u0435\u043d\u0434\w*\s+\u0430\u0432\u0442\u043e|\u0442\u0430\u043a\u0441\u0438|\u0442\u0430\u043a\u0441\u0456|\u043f\u0435\u0440\u0435\u0432\u043e\u0437|\u043b\u043e\u0433\u0438\u0441\u0442|\u043b\u043e\u0433\u0456\u0441\u0442|\u0434\u043e\u0441\u0442\u0430\u0432\u043a|\b\u0441\u0442\u043e\b|car service|logistics|delivery)/i],
+        ["AUTO_TRANSPORT", /(\u0430\u0432\u0442\u043e\u0441\u0435\u0440\u0432\u0438\u0441|\u0430\u0432\u0442\u043e\u0441\u0435\u0440\u0432\u0456\u0441|\u0448\u0438\u043d\u043e\u043c\u043e\u043d\u0442\u0430\u0436|\u0430\u0432\u0442\u043e\u043c\u043e\u0439|\u0430\u0440\u0435\u043d\u0434\S*\s+\u0430\u0432\u0442\u043e|\u043e\u0440\u0435\u043d\u0434\S*\s+\u0430\u0432\u0442\u043e|\u0442\u0430\u043a\u0441\u0438|\u0442\u0430\u043a\u0441\u0456|\u043f\u0435\u0440\u0435\u0432\u043e\u0437|\u043b\u043e\u0433\u0438\u0441\u0442|\u043b\u043e\u0433\u0456\u0441\u0442|\u0434\u043e\u0441\u0442\u0430\u0432\u043a|\b\u0441\u0442\u043e\b|car service|logistics|delivery)/i],
         ["PROFESSIONAL_SERVICES", /(\u0430\u0433\u0435\u043d\u0442\u0441\u0442\u0432|\u043c\u0430\u0440\u043a\u0435\u0442\u0438\u043d\u0433|smm|\u0434\u0438\u0437\u0430\u0439\u043d|\u0444\u043e\u0442\u043e|\u0432\u0438\u0434\u0435\u043e|\u0432\u0456\u0434\u0435\u043e|\u043a\u043e\u043d\u0441\u0430\u043b\u0442|\bhr\b|\u0440\u0435\u043a\u0440\u0443\u0442|\u0443\u0441\u043b\u0443\u0433|\u043f\u043e\u0441\u043b\u0443\u0433|agency|marketing|design|consulting)/i],
         ["MANUFACTURING_B2B", /(\u043f\u0440\u043e\u0438\u0437\u0432\u043e\u0434\u0441\u0442\u0432|\u0432\u0438\u0440\u043e\u0431\u043d\u0438\u0446\u0442\u0432|\u0437\u0430\u0432\u043e\u0434|\u0444\u0430\u0431\u0440\u0438\u043a|\u043f\u043e\u0441\u0442\u0430\u0432\u0449|\u043f\u043e\u0441\u0442\u0430\u0447|\u043e\u043f\u0442|\bb2b\b|\u0441\u043a\u043b\u0430\u0434|\u0434\u0438\u0441\u0442\u0440\u0438\u0431|manufacturing|factory|wholesale|supplier)/i],
         ["GENERAL_SERVICES", /(\u0440\u0435\u043c\u043e\u043d\u0442\s+\u0442\u0435\u0445\u043d\u0438\u043a|\u0440\u0435\u043c\u043e\u043d\u0442\s+\u0442\u0435\u0445\u043d\u0456\u043a|\u043a\u043b\u0438\u043d\u0438\u043d\u0433|\u043a\u043b\u0456\u043d\u0456\u043d\u0433|\u043c\u0430\u0441\u0442\u0435\u0440\u0441\u043a|\u0441\u0435\u0440\u0432\u0438\u0441|\u0441\u0435\u0440\u0432\u0456\u0441|\u0431\u044b\u0442\u043e\u0432|\u043f\u043e\u0431\u0443\u0442|service|repair|cleaning)/i]
@@ -574,9 +613,12 @@ function buildBusinessContextReply(lang, message) {
 }
 
 function resolveBusinessDomain(message, context = {}) {
+    const fromMessage = classifyBusinessDomain(`${message} ${context.businessDescription || ""}`);
+    if (fromMessage && fromMessage !== "UNKNOWN_BUSINESS") return fromMessage;
+
     const fromContext = cleanContactField(context.businessDomain, 80);
     if (fromContext && fromContext !== "UNKNOWN_BUSINESS") return fromContext;
-    const fromMessage = classifyBusinessDomain(`${message} ${context.businessDescription || ""}`);
+
     return fromMessage || "UNKNOWN_BUSINESS";
 }
 
@@ -618,6 +660,20 @@ function buildSolutionRequestReply(lang, message, context = {}) {
     };
     const locale = replies[lang] || replies.uk;
     return locale[domain] || locale.default;
+}
+
+function buildChatReplyPayload(reply, options = {}) {
+    const payload = {
+        reply,
+        captchaRequired: false
+    };
+
+    if (options.nextExpects) payload.nextExpects = options.nextExpects;
+    if (options.intent) payload.intent = options.intent;
+    if (options.businessDomain) payload.businessDomain = options.businessDomain;
+    if (options.businessDescription) payload.businessDescription = options.businessDescription;
+
+    return payload;
 }
 
 function buildCommercialConsultantReply(lang, message, blocks) {
@@ -1143,7 +1199,7 @@ async function handleChat(req, res) {
         userContact: cleanContactField(body.userContact || body.contact, 180),
         userInterest: cleanContactField(body.userInterest, 80),
         intent: cleanContactField(body.intent, 40),
-        expectedContext: cleanContactField(body.expectedContext, 40),
+        expectedContext: normalizeExpectedContext(body.expectedContext || body.expects),
         businessDomain: cleanContactField(body.businessDomain, 80),
         businessDescription: cleanContactField(body.businessDescription, 160)
     };
@@ -1239,25 +1295,32 @@ async function handleChat(req, res) {
 
     appendChatMessage(visitorSession, "user", message);
 
-    if (sessionContext.intent === "SHOW_EXAMPLE" || detectExampleRequest(message)) {
+    if (
+        sessionContext.intent === "SHOW_EXAMPLE"
+        || detectExampleRequest(message)
+        || (expectsExampleFromHistory(contextHistory) && detectExampleConfirmation(message))
+    ) {
         const reply = buildShowExampleReply(lang, message, sessionContext);
         appendChatMessage(visitorSession, "assistant", reply);
         saveChatSession(visitorSession);
-        sendJson(res, 200, {
-            reply,
-            captchaRequired: false
-        }, chatHeaders);
+        sendJson(res, 200, buildChatReplyPayload(reply, {
+            nextExpects: "none",
+            intent: "SHOW_EXAMPLE"
+        }), chatHeaders);
         return;
     }
 
     if (sessionContext.intent === "SOLUTION_REQUEST" || detectSolutionRequest(message)) {
+        const domain = resolveBusinessDomain(message, sessionContext);
         const reply = buildSolutionRequestReply(lang, message, sessionContext);
         appendChatMessage(visitorSession, "assistant", reply);
         saveChatSession(visitorSession);
-        sendJson(res, 200, {
-            reply,
-            captchaRequired: false
-        }, chatHeaders);
+        sendJson(res, 200, buildChatReplyPayload(reply, {
+            nextExpects: domain === "UNKNOWN_BUSINESS" ? "business_context" : "solution_details",
+            intent: "SOLUTION_REQUEST",
+            businessDomain: domain,
+            businessDescription: sessionContext.businessDescription || cleanContactField(message, 160)
+        }), chatHeaders);
         return;
     }
 
@@ -1268,13 +1331,16 @@ async function handleChat(req, res) {
         : classifyBusinessQuestion(message);
 
     if (questionType === "BUSINESS_CONTEXT") {
+        const domain = classifyBusinessDomain(message);
         const reply = buildBusinessContextReply(lang, message);
         appendChatMessage(visitorSession, "assistant", reply);
         saveChatSession(visitorSession);
-        sendJson(res, 200, {
-            reply,
-            captchaRequired: false
-        }, chatHeaders);
+        sendJson(res, 200, buildChatReplyPayload(reply, {
+            nextExpects: "solution_details",
+            intent: "BUSINESS_CONTEXT",
+            businessDomain: domain,
+            businessDescription: cleanContactField(message, 160)
+        }), chatHeaders);
         return;
     }
 
@@ -1282,10 +1348,10 @@ async function handleChat(req, res) {
         const reply = buildInformationalConsultantReply(lang, message, relevantBlocks);
         appendChatMessage(visitorSession, "assistant", reply);
         saveChatSession(visitorSession);
-        sendJson(res, 200, {
-            reply,
-            captchaRequired: false
-        }, chatHeaders);
+        sendJson(res, 200, buildChatReplyPayload(reply, {
+            nextExpects: "example_confirmation",
+            intent: "INFORMATIONAL"
+        }), chatHeaders);
         return;
     }
 
@@ -1293,10 +1359,10 @@ async function handleChat(req, res) {
         const reply = buildBusinessClarificationReply(lang, message);
         appendChatMessage(visitorSession, "assistant", reply);
         saveChatSession(visitorSession);
-        sendJson(res, 200, {
-            reply,
-            captchaRequired: false
-        }, chatHeaders);
+        sendJson(res, 200, buildChatReplyPayload(reply, {
+            nextExpects: "none",
+            intent: "CLARIFICATION"
+        }), chatHeaders);
         return;
     }
 
@@ -1304,10 +1370,10 @@ async function handleChat(req, res) {
         const reply = buildCommercialConsultantReply(lang, message, relevantBlocks);
         appendChatMessage(visitorSession, "assistant", reply);
         saveChatSession(visitorSession);
-        sendJson(res, 200, {
-            reply,
-            captchaRequired: false
-        }, chatHeaders);
+        sendJson(res, 200, buildChatReplyPayload(reply, {
+            nextExpects: "business_context",
+            intent: "COMMERCIAL"
+        }), chatHeaders);
         return;
     }
 
@@ -1328,10 +1394,10 @@ async function handleChat(req, res) {
         const reply = buildPriceQualificationReply(lang, topics);
         appendChatMessage(visitorSession, "assistant", reply);
         saveChatSession(visitorSession);
-        sendJson(res, 200, {
-            reply,
-            captchaRequired: false
-        }, chatHeaders);
+        sendJson(res, 200, buildChatReplyPayload(reply, {
+            nextExpects: "business_context",
+            intent: "COMMERCIAL"
+        }), chatHeaders);
         return;
     }
 
