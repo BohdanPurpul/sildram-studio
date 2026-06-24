@@ -1197,7 +1197,7 @@ function detectVisitorName(text) {
     if (!value || detectChatInterest(value) || detectLeadIntent(value) || detectLeadContact(value)) return "";
     const words = value.split(" ");
     if (words.length > 2) return "";
-    const blocked = /^(hello|hi|need|want|crm|ai|telegram|\u043f\u0440\u0438\u0432\u0435\u0442|\u0434\u043e\u0431\u0440\u044b\u0439|\u0434\u043e\u0431\u0440\u0438\u0439|\u0445\u043e\u0447\u0443|\u043d\u0443\u0436\u0435\u043d|\u043d\u0443\u0436\u043d\u0430|\u043f\u043e\u0442\u0440\u0456\u0431\u0435\u043d|\u043f\u043e\u0442\u0440\u0456\u0431\u043d\u0430|\u0441\u0430\u0439\u0442|\u0431\u043e\u0442)$/i;
+    const blocked = /^(hello|hi|need|want|crm|ai|telegram|yes|no|ok|okay|sure|show|tell|continue|\u0434\u0430|\u043d\u0435\u0442|\u043e\u043a|\u0445\u043e\u0440\u043e\u0448\u043e|\u0445\u043e\u0447\u0443|\u0438\u043d\u0442\u0435\u0440\u0435\u0441\u043d\u043e|\u043f\u043e\u043a\u0430\u0436\u0438|\u0440\u0430\u0441\u0441\u043a\u0430\u0436\u0438|\u043f\u0440\u043e\u0434\u043e\u043b\u0436\u0430\u0439|\u0442\u0430\u043a|\u043d\u0456|\u0434\u043e\u0431\u0440\u0435|\u0446\u0456\u043a\u0430\u0432\u043e|\u0440\u043e\u0437\u043a\u0430\u0436\u0438|\u043f\u0440\u043e\u0434\u043e\u0432\u0436\u0443\u0439|\u043f\u0440\u0438\u0432\u0435\u0442|\u0434\u043e\u0431\u0440\u044b\u0439|\u0434\u043e\u0431\u0440\u0438\u0439|\u043d\u0443\u0436\u0435\u043d|\u043d\u0443\u0436\u043d\u0430|\u043f\u043e\u0442\u0440\u0456\u0431\u0435\u043d|\u043f\u043e\u0442\u0440\u0456\u0431\u043d\u0430|\u0441\u0430\u0439\u0442|\u0431\u043e\u0442)$/i;
     if (words.some((word) => blocked.test(word))) return "";
     if (!words.every((word) => /^[A-Za-z\u0400-\u04FF'-]{2,24}$/.test(word))) return "";
     return words.map(normalizeVisitorName).join(" ");
@@ -1349,6 +1349,27 @@ function createChatWidget() {
         const options = copy.fallback;
         const last = normalizeReply(lastAssistantMessage());
         return options.find((option) => normalizeReply(option) !== last) || copy.clarify;
+    };
+
+    const isAffirmativeContinuation = (text) => {
+        const value = String(text || "").toLowerCase().replace(/[!?.,"'()]/g, " ").replace(/\s+/g, " ").trim();
+        if (!/^(yes|ok|okay|sure|\u0434\u0430|\u043e\u043a|\u0445\u043e\u0440\u043e\u0448\u043e|\u0442\u0430\u043a|\u0434\u043e\u0431\u0440\u0435)$/.test(value)) return false;
+        const last = normalizeReply(lastAssistantMessage());
+        return last.includes("\u0445\u043e\u0442\u0438\u0442\u0435")
+            || last.includes("\u0445\u043e\u0447\u0435\u0442\u0435")
+            || last.includes("would you like")
+            || last.includes("\u043f\u043e\u043a\u0430\u0436\u0443")
+            || last.includes("\u043f\u043e\u043a\u0430\u0436\u0443")
+            || last.includes("show a simple");
+    };
+
+    const buildContinuationReply = () => {
+        const replies = {
+            uk: "\u041d\u0430\u043f\u0440\u0438\u043a\u043b\u0430\u0434, \u0434\u043b\u044f \u043c\u0430\u043b\u043e\u0433\u043e \u0431\u0456\u0437\u043d\u0435\u0441\u0443 CRM \u043c\u043e\u0436\u043d\u0430 \u043f\u0456\u0434\u043a\u043b\u044e\u0447\u0438\u0442\u0438 \u0442\u0430\u043a: \u0437\u0430\u044f\u0432\u043a\u0438 \u0437 \u0441\u0430\u0439\u0442\u0443 \u0430\u0431\u043e Telegram-\u0431\u043e\u0442\u0430 \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u043d\u043e \u043f\u043e\u0442\u0440\u0430\u043f\u043b\u044f\u044e\u0442\u044c \u0432 CRM, \u043c\u0435\u043d\u0435\u0434\u0436\u0435\u0440 \u0431\u0430\u0447\u0438\u0442\u044c \u043a\u043b\u0456\u0454\u043d\u0442\u0430, \u0437\u0430\u0434\u0430\u0447\u0443 \u0456 \u043d\u0430\u0441\u0442\u0443\u043f\u043d\u0438\u0439 \u043a\u0440\u043e\u043a. \u0426\u0435 \u0434\u043e\u043f\u043e\u043c\u0430\u0433\u0430\u0454 \u043d\u0435 \u0433\u0443\u0431\u0438\u0442\u0438 \u0437\u0432\u0435\u0440\u043d\u0435\u043d\u043d\u044f \u0456 \u0448\u0432\u0438\u0434\u0448\u0435 \u0432\u0456\u0434\u043f\u043e\u0432\u0456\u0434\u0430\u0442\u0438 \u043b\u044e\u0434\u044f\u043c.",
+            ru: "\u041d\u0430\u043f\u0440\u0438\u043c\u0435\u0440, \u0434\u043b\u044f \u043c\u0430\u043b\u043e\u0433\u043e \u0431\u0438\u0437\u043d\u0435\u0441\u0430 CRM \u043c\u043e\u0436\u043d\u043e \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0438\u0442\u044c \u0442\u0430\u043a: \u0437\u0430\u044f\u0432\u043a\u0438 \u0441 \u0441\u0430\u0439\u0442\u0430 \u0438\u043b\u0438 Telegram-\u0431\u043e\u0442\u0430 \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438 \u043f\u043e\u043f\u0430\u0434\u0430\u044e\u0442 \u0432 CRM, \u043c\u0435\u043d\u0435\u0434\u0436\u0435\u0440 \u0432\u0438\u0434\u0438\u0442 \u043a\u043b\u0438\u0435\u043d\u0442\u0430, \u0437\u0430\u0434\u0430\u0447\u0443 \u0438 \u0441\u043b\u0435\u0434\u0443\u044e\u0449\u0438\u0439 \u0448\u0430\u0433. \u042d\u0442\u043e \u043f\u043e\u043c\u043e\u0433\u0430\u0435\u0442 \u043d\u0435 \u0442\u0435\u0440\u044f\u0442\u044c \u043e\u0431\u0440\u0430\u0449\u0435\u043d\u0438\u044f \u0438 \u0431\u044b\u0441\u0442\u0440\u0435\u0435 \u043e\u0442\u0432\u0435\u0447\u0430\u0442\u044c \u043b\u044e\u0434\u044f\u043c.",
+            en: "For example, CRM for a small business can work like this: requests from a website or Telegram bot automatically go to CRM, and the manager sees the client, task, and next step. This helps avoid losing inquiries and respond to people faster."
+        };
+        return replies[currentLang] || replies.uk;
     };
 
     const polishAssistantReply = (reply) => {
@@ -1520,6 +1541,17 @@ function createChatWidget() {
             const reply = visitorName
                 ? getDialogueCopy().greetingKnown(visitorName)
                 : getDialogueCopy().greetingUnknown;
+            addMessage(reply, "bot");
+            rememberMessage("assistant", reply);
+            syncChatMemory([
+                { role: "user", content: value },
+                { role: "assistant", content: reply }
+            ]);
+            return;
+        }
+
+        if (isAffirmativeContinuation(value)) {
+            const reply = buildContinuationReply();
             addMessage(reply, "bot");
             rememberMessage("assistant", reply);
             syncChatMemory([

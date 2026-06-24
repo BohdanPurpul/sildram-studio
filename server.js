@@ -10,11 +10,14 @@ const dataDir = path.join(rootDir, "data");
 const leadsPath = path.join(dataDir, "leads.json");
 const unansweredPath = path.join(dataDir, "unanswered.json");
 const chatSessionsPath = path.join(dataDir, "chat-sessions.json");
+const abuseEventsPath = path.join(dataDir, "abuse-events.json");
 const port = Number(process.env.PORT || 3000);
 const envPath = path.join(rootDir, ".env");
 const rateBuckets = new Map();
 const chatChallengeBuckets = new Map();
+const chatAbuseBuckets = new Map();
 const chatSessionCookieName = "sildram_chat_verified";
+const chatSessionUsageCookieName = "sildram_chat_usage";
 const chatSessionMaxAgeSeconds = 60 * 60;
 const visitorCookieName = "visitor_id";
 const visitorCookieMaxAgeSeconds = 30 * 24 * 60 * 60;
@@ -235,10 +238,19 @@ function normalizeServiceTerms(value) {
     );
 }
 
+function detectCrmImplementationIntent(message) {
+    const normalized = String(message || "").toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, " ").replace(/\s+/g, " ").trim();
+    const crm = "(?:crm|\u0441\u0440\u043c|\u0446\u0440\u043c)";
+    return new RegExp(`(\u0445\u043e\u0447\u0443|\u043d\u0443\u0436\u043d\\p{L}*|\u043f\u043e\u0442\u0440\u0456\u0431\\p{L}*|want|need).{0,35}${crm}`, "iu").test(normalized)
+        || new RegExp(`(\u0432\u043d\u0435\u0434\u0440\\p{L}*|\u0432\u043f\u0440\u043e\u0432\u0430\u0434\\p{L}*|\u043f\u043e\u0434\u043a\u043b\u044e\u0447\\p{L}*|\u043f\u0456\u0434\u043a\u043b\u044e\u0447\\p{L}*|implement|connect).{0,35}${crm}`, "iu").test(normalized)
+        || new RegExp(`${crm}.{0,35}(\u043f\u043e\u0434\\s+\u0441\u0432\u043e\u0439\\s+\u0431\u0438\u0437\u043d\u0435\u0441|\u043f\u0456\u0434\\s+\u0441\u0432\u0456\u0439\\s+\u0431\u0456\u0437\u043d\u0435\u0441|for\\s+my\\s+business)`, "iu").test(normalized);
+}
+
 function detectCommercialIntent(message) {
     const normalized = normalizeServiceTerms(message).toLowerCase();
     if (priceIntentPatterns.some((pattern) => pattern.test(normalized))) return "price";
     if (priceIntentPhrases.some((phrase) => normalized.includes(phrase))) return "price";
+    if (detectCrmImplementationIntent(message)) return "lead";
     if (commercialIntentPhrases.some((phrase) => normalized.includes(phrase))) return "lead";
     return "";
 }
@@ -252,31 +264,32 @@ function classifyBusinessQuestion(message) {
         || /(\u044f\u043a|\u043a\u0430\u043a).{0,30}(\u043f\u0440\u0430\u0446\u044e|\u0440\u0430\u0431\u043e\u0442)/i.test(normalized)
         || /(\u043d\u0430\u0432\u0456\u0449\u043e|\u0437\u0430\u0447\u0435\u043c|\u0447\u0435\u043c|\u0447\u0438\u043c|\u0432\u0456\u0434\u0440\u0456\u0437\u043d|\u043e\u0442\u043b\u0438\u0447)/i.test(normalized);
 
-    if (hasService && hasInfoIntent) return "INFORMATIONAL";
     if (detectCommercialIntent(message)) return "COMMERCIAL";
     if (detectBusinessContext(normalized)) return "BUSINESS_CONTEXT";
+    if (hasService && hasInfoIntent) return "INFORMATIONAL";
     if (detectOffTopic(message)) return "OFF_TOPIC";
     if (hasService && terms.length <= 2) return "CLARIFICATION";
 
     return hasService ? "INFORMATIONAL" : "OFF_TOPIC";
 }
 
-function detectBusinessContext(normalized) {
+function detectBusinessContext(value) {
+    const normalized = normalizeSearchText(value);
     if (!hasBusinessContextIntro(normalized)) return false;
     if (detectKnownBusinessNiche(normalized)) return true;
 
     const description = normalized
-        .replace(/\b(my\s+business\s+is|i\s+have\s+a|i\s+have|we\s+have\s+a|we\s+have)\b/i, "")
-        .replace(/(^|\s)(\u0443\s+\u043c\u0435\u043d\u044f|\u0443\s+\u043d\u0430\u0441|\u043c\u043e\u0439\s+\u0431\u0438\u0437\u043d\u0435\u0441|\u043c\u043e\u044f\s+\u043a\u043e\u043c\u043f\u0430\u043d\u0438\u044f|\u0443\s+\u043c\u0435\u043d\u0435|\u043c\u0456\u0439\s+\u0431\u0456\u0437\u043d\u0435\u0441|\u043c\u043e\u044f\s+\u043a\u043e\u043c\u043f\u0430\u043d\u0456\u044f)\b/i, "")
+        .replace(/\b(my\s+business\s+is|my\s+business|my\s+company|i\s+have\s+a|i\s+have|we\s+have\s+a|we\s+have)\b/i, "")
+        .replace(/(^|\s)(\u0443\s+\u043c\u0435\u043d\u044f\s+\u0435\u0441\u0442\u044c|\u0443\s+\u043d\u0430\u0441\s+\u0435\u0441\u0442\u044c|\u0443\s+\u043c\u0435\u043d\u044f|\u0443\s+\u043d\u0430\u0441|\u043c\u043e\u0439\s+\u0431\u0438\u0437\u043d\u0435\u0441|\u043c\u043e\u044f\s+\u043a\u043e\u043c\u043f\u0430\u043d\u0438\u044f|\u0443\s+\u043c\u0435\u043d\u0435|\u043c\u0456\u0439\s+\u0431\u0456\u0437\u043d\u0435\u0441|\u043c\u043e\u044f\s+\u043a\u043e\u043c\u043f\u0430\u043d\u0456\u044f)\b/i, "")
         .trim();
     const meaningfulTerms = description
         .split(/\s+/)
-        .filter((term) => term && !/^(business|company|\u0431\u0438\u0437\u043d\u0435\u0441|\u0431\u0456\u0437\u043d\u0435\u0441|\u043a\u043e\u043c\u043f\u0430\u043d\u0438\u044f|\u043a\u043e\u043c\u043f\u0430\u043d\u0456\u044f|\u0435\u0441\u0442\u044c|\u0454)$/i.test(term));
+        .filter((term) => term && !/^(business|company|\u0431\u0438\u0437\u043d\u0435\u0441|\u0431\u0456\u0437\u043d\u0435\u0441|\u043a\u043e\u043c\u043f\u0430\u043d\u0438\u044f|\u043a\u043e\u043c\u043f\u0430\u043d\u0456\u044f|\u0435\u0441\u0442\u044c|\u0454|\u0430|\u0435)$/i.test(term));
     return meaningfulTerms.length > 0;
 }
 
 function hasBusinessContextIntro(normalized) {
-    return /(^|\s)(\u0443\s+\u043c\u0435\u043d\u044f|\u0443\s+\u043d\u0430\u0441|\u043c\u043e\u0439\s+\u0431\u0438\u0437\u043d\u0435\u0441|\u043c\u043e\u044f\s+\u043a\u043e\u043c\u043f\u0430\u043d\u0438\u044f|\u0443\s+\u043c\u0435\u043d\u0435|\u043c\u0456\u0439\s+\u0431\u0456\u0437\u043d\u0435\u0441|\u043c\u043e\u044f\s+\u043a\u043e\u043c\u043f\u0430\u043d\u0456\u044f|my\s+business\s+is|i\s+have\s+a|i\s+have|we\s+have\s+a|we\s+have)\b/i.test(normalized);
+    return /(^|\s)(\u0443\s+\u043c\u0435\u043d\u044f\s+\u0435\u0441\u0442\u044c|\u0443\s+\u043d\u0430\u0441\s+\u0435\u0441\u0442\u044c|\u0443\s+\u043c\u0435\u043d\u044f|\u0443\s+\u043d\u0430\u0441|\u043c\u043e\u0439\s+\u0431\u0438\u0437\u043d\u0435\u0441|\u043c\u043e\u044f\s+\u043a\u043e\u043c\u043f\u0430\u043d\u0438\u044f|\u0443\s+\u043c\u0435\u043d\u0435|\u043c\u0456\u0439\s+\u0431\u0456\u0437\u043d\u0435\u0441|\u043c\u043e\u044f\s+\u043a\u043e\u043c\u043f\u0430\u043d\u0456\u044f|my\s+business\s+is|my\s+business|my\s+company|i\s+have\s+a|i\s+have|we\s+have\s+a|we\s+have)\b/i.test(normalized);
 }
 
 function detectKnownBusinessNiche(normalized) {
@@ -526,6 +539,15 @@ function buildCommercialConsultantReply(lang, message, blocks) {
             uk: "\u0412\u0430\u0440\u0442\u0456\u0441\u0442\u044c \u0437\u0430\u043b\u0435\u0436\u0438\u0442\u044c \u0432\u0456\u0434 \u0444\u0443\u043d\u043a\u0446\u0456\u0439, \u0456\u043d\u0442\u0435\u0433\u0440\u0430\u0446\u0456\u0439 \u0442\u0430 \u0441\u043a\u043b\u0430\u0434\u043d\u043e\u0441\u0442\u0456 \u0441\u0446\u0435\u043d\u0430\u0440\u0456\u044e.\n\n\u0429\u043e\u0431 \u043e\u0446\u0456\u043d\u0438\u0442\u0438 \u0440\u0456\u0448\u0435\u043d\u043d\u044f \u043d\u043e\u0440\u043c\u0430\u043b\u044c\u043d\u043e, \u0441\u043f\u043e\u0447\u0430\u0442\u043a\u0443 \u0442\u0440\u0435\u0431\u0430 \u0437\u0440\u043e\u0437\u0443\u043c\u0456\u0442\u0438 \u0437\u0430\u0434\u0430\u0447\u0443.\n\n\u041f\u0456\u0434\u043a\u0430\u0436\u0456\u0442\u044c, \u0431\u0443\u0434\u044c \u043b\u0430\u0441\u043a\u0430:\n\u2022 \u044f\u043a\u0438\u0439 \u0443 \u0432\u0430\u0441 \u0431\u0456\u0437\u043d\u0435\u0441;\n\u2022 \u0449\u043e \u043c\u0430\u0454 \u0440\u043e\u0431\u0438\u0442\u0438 \u0440\u0456\u0448\u0435\u043d\u043d\u044f;\n\u2022 \u0447\u0438 \u043f\u043e\u0442\u0440\u0456\u0431\u043d\u0456 CRM, Telegram, \u0441\u0430\u0439\u0442 \u0430\u0431\u043e AI-\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u043d\u0442.",
             ru: "\u0421\u0442\u043e\u0438\u043c\u043e\u0441\u0442\u044c \u0437\u0430\u0432\u0438\u0441\u0438\u0442 \u043e\u0442 \u0444\u0443\u043d\u043a\u0446\u0438\u0439, \u0438\u043d\u0442\u0435\u0433\u0440\u0430\u0446\u0438\u0439 \u0438 \u0441\u043b\u043e\u0436\u043d\u043e\u0441\u0442\u0438 \u0441\u0446\u0435\u043d\u0430\u0440\u0438\u044f.\n\n\u0427\u0442\u043e\u0431\u044b \u043e\u0446\u0435\u043d\u0438\u0442\u044c \u0440\u0435\u0448\u0435\u043d\u0438\u0435 \u043d\u043e\u0440\u043c\u0430\u043b\u044c\u043d\u043e, \u0441\u043d\u0430\u0447\u0430\u043b\u0430 \u043d\u0443\u0436\u043d\u043e \u043f\u043e\u043d\u044f\u0442\u044c \u0437\u0430\u0434\u0430\u0447\u0443.\n\n\u041f\u043e\u0434\u0441\u043a\u0430\u0436\u0438\u0442\u0435, \u043f\u043e\u0436\u0430\u043b\u0443\u0439\u0441\u0442\u0430:\n\u2022 \u043a\u0430\u043a\u043e\u0439 \u0443 \u0432\u0430\u0441 \u0431\u0438\u0437\u043d\u0435\u0441;\n\u2022 \u0447\u0442\u043e \u0434\u043e\u043b\u0436\u043d\u043e \u0434\u0435\u043b\u0430\u0442\u044c \u0440\u0435\u0448\u0435\u043d\u0438\u0435;\n\u2022 \u043d\u0443\u0436\u043d\u044b \u043b\u0438 CRM, Telegram, \u0441\u0430\u0439\u0442 \u0438\u043b\u0438 AI-\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u043d\u0442.",
             en: "The cost depends on the required features, integrations, and scenario complexity.\n\nTo estimate the solution properly, we first need to understand the task.\n\nPlease tell me:\n• what kind of business this is for;\n• what the solution should do;\n• whether CRM, Telegram, a website, or an AI consultant is needed."
+        };
+        return replies[lang] || replies.uk;
+    }
+
+    if (detectCrmImplementationIntent(message)) {
+        const replies = {
+            uk: "\u0417\u0440\u043e\u0437\u0443\u043c\u0456\u0432, \u0432\u0430\u043c \u043f\u043e\u0442\u0440\u0456\u0431\u043d\u0430 CRM \u043f\u0456\u0434 \u0431\u0456\u0437\u043d\u0435\u0441. \u0429\u043e\u0431 \u043f\u0456\u0434\u043a\u0430\u0437\u0430\u0442\u0438 \u0440\u0456\u0448\u0435\u043d\u043d\u044f, \u0441\u043f\u043e\u0447\u0430\u0442\u043a\u0443 \u043f\u043e\u0442\u0440\u0456\u0431\u043d\u043e \u0437\u0440\u043e\u0437\u0443\u043c\u0456\u0442\u0438, \u0437\u0432\u0456\u0434\u043a\u0438 \u043f\u0440\u0438\u0445\u043e\u0434\u044f\u0442\u044c \u0437\u0430\u044f\u0432\u043a\u0438, \u0445\u0442\u043e \u0457\u0445 \u043e\u0431\u0440\u043e\u0431\u043b\u044f\u0454 \u0456 \u0434\u0435 \u0437\u0430\u0440\u0430\u0437 \u0433\u0443\u0431\u043b\u044f\u0442\u044c\u0441\u044f \u0437\u0432\u0435\u0440\u043d\u0435\u043d\u043d\u044f. \u0420\u043e\u0437\u043a\u0430\u0436\u0456\u0442\u044c, \u0431\u0443\u0434\u044c \u043b\u0430\u0441\u043a\u0430, \u044f\u043a\u0438\u0439 \u0443 \u0432\u0430\u0441 \u0431\u0456\u0437\u043d\u0435\u0441?",
+            ru: "\u041f\u043e\u043d\u044f\u043b, \u0432\u0430\u043c \u043d\u0443\u0436\u043d\u0430 CRM \u043f\u043e\u0434 \u0431\u0438\u0437\u043d\u0435\u0441. \u0427\u0442\u043e\u0431\u044b \u043f\u043e\u0434\u0441\u043a\u0430\u0437\u0430\u0442\u044c \u0440\u0435\u0448\u0435\u043d\u0438\u0435, \u0441\u043d\u0430\u0447\u0430\u043b\u0430 \u043d\u0443\u0436\u043d\u043e \u043f\u043e\u043d\u044f\u0442\u044c, \u043e\u0442\u043a\u0443\u0434\u0430 \u043f\u0440\u0438\u0445\u043e\u0434\u044f\u0442 \u0437\u0430\u044f\u0432\u043a\u0438, \u043a\u0442\u043e \u0438\u0445 \u043e\u0431\u0440\u0430\u0431\u0430\u0442\u044b\u0432\u0430\u0435\u0442 \u0438 \u0433\u0434\u0435 \u0441\u0435\u0439\u0447\u0430\u0441 \u0442\u0435\u0440\u044f\u044e\u0442\u0441\u044f \u043e\u0431\u0440\u0430\u0449\u0435\u043d\u0438\u044f. \u0420\u0430\u0441\u0441\u043a\u0430\u0436\u0438\u0442\u0435, \u043f\u043e\u0436\u0430\u043b\u0443\u0439\u0441\u0442\u0430, \u043a\u0430\u043a\u043e\u0439 \u0443 \u0432\u0430\u0441 \u0431\u0438\u0437\u043d\u0435\u0441?",
+            en: "Got it, you need CRM for your business. To suggest the right solution, we first need to understand where requests come from, who handles them, and where inquiries are currently being lost. Please tell me what kind of business you have."
         };
         return replies[lang] || replies.uk;
     }
@@ -1018,7 +1040,7 @@ function handleChatState(req, res) {
 }
 
 async function handleChat(req, res) {
-    if (!allowRequest(req)) {
+    if (!allowRequest(req, getChatAbuseLimits().perMinute + 5)) {
         sendJson(res, 429, { error: "Забагато повідомлень. Спробуйте трохи пізніше." });
         return;
     }
@@ -1063,11 +1085,29 @@ async function handleChat(req, res) {
     }
 
     const visitor = getOrCreateVisitor(req);
+    const abuseResult = checkChatAbuse(req, visitor.visitorId, message);
+    const chatHeaders = buildSetCookieHeaders([
+        captchaResult.setCookie,
+        visitor.setCookie,
+        abuseResult.setCookie,
+        ...(abuseResult.clearCookies || [])
+    ]);
+
+    if (!abuseResult.ok) {
+        saveAbuseEvent(abuseResult.reason, req, visitor.visitorId, message);
+        sendJson(res, abuseResult.captchaRequired ? 403 : 429, {
+            error: abuseResult.captchaRequired
+                ? "Please complete the verification and try again."
+                : buildAntiAbuseReply(lang),
+            captchaRequired: Boolean(abuseResult.captchaRequired)
+        }, chatHeaders);
+        return;
+    }
+
     const visitorSession = getOrCreateChatSession(visitor.visitorId);
     updateVisitorSession(visitorSession, sessionContext);
     const memoryHistory = getSessionHistoryForModel(visitorSession, 12);
     const contextHistory = mergeChatHistories(memoryHistory, cleanHistory, 12);
-    const chatHeaders = buildSetCookieHeaders([captchaResult.setCookie, visitor.setCookie]);
 
     if (detectRoleOverride(message)) {
         sendJson(res, 200, {
@@ -1093,7 +1133,7 @@ async function handleChat(req, res) {
         return;
     }
 
-    if (detectOffTopic(message) && !detectBusinessContext(normalizeSearchText(message)) && !detectCommercialIntent(message)) {
+    if (detectOffTopic(message) && !detectBusinessContext(message) && !detectCommercialIntent(message)) {
         appendChatMessage(visitorSession, "user", message);
         sendJson(res, 200, {
             reply: buildTopicRefusal(lang),
@@ -1732,6 +1772,172 @@ function createChatSessionCookie(req) {
     return `${chatSessionCookieName}=${value}; Max-Age=${chatSessionMaxAgeSeconds}; Path=/; HttpOnly; SameSite=Lax${secure}`;
 }
 
+function checkChatAbuse(req, visitorId, message) {
+    const limits = getChatAbuseLimits();
+    const usageCount = readChatUsageCount(req);
+
+    if (usageCount >= limits.captchaAfter) {
+        return {
+            ok: false,
+            reason: "captcha_required",
+            captchaRequired: true,
+            clearCookies: clearChatVerificationCookies(req)
+        };
+    }
+
+    const now = Date.now();
+    const key = getChatAbuseKey(req, visitorId);
+    const bucket = chatAbuseBuckets.get(key) || {
+        timestamps: [],
+        lastAt: 0,
+        lastMessageHash: "",
+        duplicateCount: 0
+    };
+    const normalizedMessage = normalizeAbuseMessage(message);
+    const messageHash = hashValue(normalizedMessage);
+    const sameMessage = messageHash && messageHash === bucket.lastMessageHash;
+
+    bucket.timestamps = bucket.timestamps.filter((time) => now - time < 10 * 60_000);
+    bucket.duplicateCount = sameMessage ? bucket.duplicateCount + 1 : 1;
+    bucket.lastMessageHash = messageHash;
+
+    const oneMinuteCount = bucket.timestamps.filter((time) => now - time < 60_000).length;
+    const isTooFast = bucket.lastAt && now - bucket.lastAt < limits.minGapMs;
+    const isWindowLimited = oneMinuteCount >= limits.perMinute || bucket.timestamps.length >= limits.perTenMinutes;
+    const isDuplicateSpam = bucket.duplicateCount >= 5 || (normalizedMessage.length <= 12 && bucket.duplicateCount >= 4);
+
+    if (isDuplicateSpam) {
+        chatAbuseBuckets.set(key, bucket);
+        return { ok: false, reason: "duplicate_message", captchaRequired: false, setCookie: "" };
+    }
+
+    if (isTooFast || isWindowLimited) {
+        chatAbuseBuckets.set(key, bucket);
+        return { ok: false, reason: "rate_limit", captchaRequired: false, setCookie: "" };
+    }
+
+    bucket.timestamps.push(now);
+    bucket.lastAt = now;
+    chatAbuseBuckets.set(key, bucket);
+
+    return {
+        ok: true,
+        reason: "",
+        captchaRequired: false,
+        setCookie: createChatUsageCookie(req, usageCount + 1)
+    };
+}
+
+function getChatAbuseLimits() {
+    const ownerTestMode = /^true$/i.test(String(process.env.OWNER_TEST_MODE || ""));
+    return ownerTestMode
+        ? { perTenMinutes: 120, perMinute: 30, minGapMs: 200, captchaAfter: 200 }
+        : { perTenMinutes: 30, perMinute: 8, minGapMs: 1000, captchaAfter: 50 };
+}
+
+function getChatAbuseKey(req, visitorId) {
+    const ipHash = hashValue(getClientIp(req));
+    const uaHash = hashValue(req.headers["user-agent"] || "");
+    return `${sanitizeVisitorId(visitorId) || "no-visitor"}:${ipHash}:${uaHash}`;
+}
+
+function normalizeAbuseMessage(message) {
+    return normalizeSearchText(message).slice(0, 240);
+}
+
+function readChatUsageCount(req) {
+    const value = parseCookies(req.headers.cookie || "")[chatSessionUsageCookieName];
+    if (!value) return 0;
+
+    const parts = value.split(".");
+    if (parts.length !== 4) return 0;
+
+    const [countRaw, expiresRaw, nonce, signature] = parts;
+    const count = Number(countRaw);
+    const expires = Number(expiresRaw);
+    if (!Number.isInteger(count) || count < 0 || !Number.isFinite(expires) || Date.now() > expires) {
+        return 0;
+    }
+
+    const payload = `usage.${countRaw}.${expiresRaw}.${nonce}`;
+    const expected = signChatSession(payload);
+    return safeEqual(signature, expected) ? count : 0;
+}
+
+function createChatUsageCookie(req, count) {
+    const safeCount = Math.max(0, Math.min(Number(count) || 0, 10_000));
+    const expires = Date.now() + chatSessionMaxAgeSeconds * 1000;
+    const nonce = crypto.randomBytes(8).toString("base64url");
+    const payload = `usage.${safeCount}.${expires}.${nonce}`;
+    const value = `${safeCount}.${expires}.${nonce}.${signChatSession(payload)}`;
+    const secure = isHttpsRequest(req) ? "; Secure" : "";
+    return `${chatSessionUsageCookieName}=${value}; Max-Age=${chatSessionMaxAgeSeconds}; Path=/; HttpOnly; SameSite=Lax${secure}`;
+}
+
+function clearChatVerificationCookies(req) {
+    return [
+        expireCookie(req, chatSessionCookieName),
+        expireCookie(req, chatSessionUsageCookieName)
+    ];
+}
+
+function expireCookie(req, name) {
+    const secure = isHttpsRequest(req) ? "; Secure" : "";
+    return `${name}=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax${secure}`;
+}
+
+function buildAntiAbuseReply(lang) {
+    const replies = {
+        uk: "Забагато повідомлень поспіль. Зачекайте трохи й продовжимо.",
+        ru: "Слишком много сообщений подряд. Подождите немного и продолжим.",
+        en: "Too many messages in a row. Please wait a moment and we’ll continue."
+    };
+    return replies[lang] || replies.uk;
+}
+
+function saveAbuseEvent(reason, req, visitorId, message) {
+    try {
+        fs.mkdirSync(dataDir, { recursive: true });
+        const events = loadAbuseEvents();
+        events.push({
+            createdAt: new Date().toISOString(),
+            reason: ["rate_limit", "duplicate_message", "captcha_required"].includes(reason) ? reason : "rate_limit",
+            visitorId: sanitizeVisitorId(visitorId),
+            ipHash: hashValue(getClientIp(req)),
+            messagePreview: sanitizeChatContent(message, 80)
+        });
+        fs.writeFileSync(abuseEventsPath, `${JSON.stringify(events.slice(-1000), null, 2)}\n`, "utf8");
+    } catch (error) {
+        console.error("Abuse event storage write error:", error);
+    }
+}
+
+function loadAbuseEvents() {
+    try {
+        if (!fs.existsSync(abuseEventsPath)) return [];
+        const raw = fs.readFileSync(abuseEventsPath, "utf8").trim();
+        if (!raw) return [];
+        const events = JSON.parse(raw);
+        return Array.isArray(events) ? events : [];
+    } catch (error) {
+        console.error("Abuse event storage read error:", error);
+        return [];
+    }
+}
+
+function getClientIp(req) {
+    const forwarded = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
+    return forwarded || req.socket.remoteAddress || "unknown";
+}
+
+function hashValue(value) {
+    return crypto
+        .createHash("sha256")
+        .update(String(value || ""))
+        .digest("hex")
+        .slice(0, 32);
+}
+
 function signChatSession(payload) {
     const secret = process.env.TURNSTILE_SECRET_KEY || process.env.OPENAI_API_KEY || "sildram-local-chat-session";
     return crypto.createHmac("sha256", secret).update(payload).digest("base64url");
@@ -1894,11 +2100,10 @@ function readJson(req, maxBytes) {
     });
 }
 
-function allowRequest(req) {
+function allowRequest(req, limit = 20) {
     const ip = req.socket.remoteAddress || "unknown";
     const now = Date.now();
     const windowMs = 60_000;
-    const limit = 20;
     const bucket = rateBuckets.get(ip) || [];
     const recent = bucket.filter((time) => now - time < windowMs);
 

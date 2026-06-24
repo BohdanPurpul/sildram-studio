@@ -21,6 +21,7 @@ const blockedPathRules = [
     { test: (file) => file === "data/leads.json", reason: "customer lead data must not be committed" },
     { test: (file) => file === "data/unanswered.json", reason: "unanswered chat data must not be committed" },
     { test: (file) => file === "data/chat-sessions.json", reason: "chat session data must not be committed" },
+    { test: (file) => file === "data/abuse-events.json", reason: "abuse event logs must not be committed" },
     { test: (file) => /^data\/.+\.json$/i.test(file), reason: "private data JSON files must not be committed" },
     { test: (file) => /^data\/.+\.ndjson$/i.test(file), reason: "private data NDJSON files must not be committed" }
 ];

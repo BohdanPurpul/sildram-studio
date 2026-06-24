@@ -15,6 +15,7 @@ _archive/
 data/leads.json
 data/unanswered.json
 data/chat-sessions.json
+data/abuse-events.json
 data/*.json
 data/*.ndjson
 !data/.gitkeep
