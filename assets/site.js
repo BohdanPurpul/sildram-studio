@@ -1012,13 +1012,12 @@ const CHAT_SESSION_KEYS = {
     userName: "sildram-chat-user-name",
     userInterest: "sildram-chat-user-interest",
     userContact: "sildram-chat-user-contact",
-    leadStage: "sildram-chat-lead-stage",
-    leadTask: "sildram-chat-lead-task",
     lastIntent: "sildram-chat-last-intent",
     lastBusinessDomain: "sildram-chat-last-business-domain",
     lastBusinessDescription: "sildram-chat-last-business-description",
     requestedServices: "sildram-chat-requested-services",
     expects: "sildram-chat-expects",
+    stage: "sildram-chat-stage",
     welcomed: "sildram-chat-welcomed"
 };
 
@@ -1330,13 +1329,12 @@ function createChatWidget() {
     let visitorName = readChatSessionValue(CHAT_SESSION_KEYS.userName);
     let visitorInterest = readChatSessionValue(CHAT_SESSION_KEYS.userInterest);
     let visitorContact = readChatSessionValue(CHAT_SESSION_KEYS.userContact);
-    let leadStage = readChatSessionValue(CHAT_SESSION_KEYS.leadStage) || "idle";
-    let leadTask = readChatSessionValue(CHAT_SESSION_KEYS.leadTask);
     let lastIntent = readChatSessionValue(CHAT_SESSION_KEYS.lastIntent);
     let lastBusinessDomain = readChatSessionValue(CHAT_SESSION_KEYS.lastBusinessDomain);
     let lastBusinessDescription = readChatSessionValue(CHAT_SESSION_KEYS.lastBusinessDescription);
     let requestedServices = readChatSessionValue(CHAT_SESSION_KEYS.requestedServices);
     let expectedFollowup = readChatSessionValue(CHAT_SESSION_KEYS.expects);
+    let dialogStage = readChatSessionValue(CHAT_SESSION_KEYS.stage) || "START";
     let pendingBackendDialogState = null;
     let chatStateLoaded = false;
 
@@ -1391,6 +1389,11 @@ function createChatWidget() {
                 visitorInterest = String(data.interest).slice(0, 120);
                 writeChatSessionValue(CHAT_SESSION_KEYS.userInterest, visitorInterest);
             }
+            if (data.stage) {
+                dialogStage = String(data.stage).slice(0, 40);
+                writeChatSessionValue(CHAT_SESSION_KEYS.stage, dialogStage);
+            }
+            if (data.expects) setExpectedFollowup(String(data.expects).slice(0, 40));
             return data;
         } catch (error) {
             return null;
@@ -1475,7 +1478,8 @@ function createChatWidget() {
             intent: typeof data.intent === "string" ? data.intent : "",
             businessDomain: typeof data.businessDomain === "string" ? data.businessDomain : "",
             businessDescription: typeof data.businessDescription === "string" ? data.businessDescription : "",
-            requestedServices: Array.isArray(data.requestedServices) ? data.requestedServices : []
+            requestedServices: Array.isArray(data.requestedServices) ? data.requestedServices : [],
+            stage: typeof data.stage === "string" ? data.stage : ""
         };
     };
 
@@ -1501,6 +1505,11 @@ function createChatWidget() {
 
             if (pendingBackendDialogState.requestedServices.length) {
                 saveRequestedServices(pendingBackendDialogState.requestedServices);
+            }
+
+            if (pendingBackendDialogState.stage) {
+                dialogStage = pendingBackendDialogState.stage;
+                writeChatSessionValue(CHAT_SESSION_KEYS.stage, dialogStage);
             }
 
             pendingBackendDialogState = null;
@@ -1589,7 +1598,8 @@ function createChatWidget() {
                     businessDomain: meta.businessDomain || lastBusinessDomain,
                     businessDescription: meta.businessDescription || lastBusinessDescription,
                     requestedServices: requestedServices ? requestedServices.split(",").filter(Boolean) : [],
-                    lastIntent
+                    lastIntent,
+                    stage: dialogStage
                 })
             });
 
@@ -1623,75 +1633,6 @@ function createChatWidget() {
         }
     };
 
-    const setLeadStage = (stage) => {
-        leadStage = stage;
-        writeChatSessionValue(CHAT_SESSION_KEYS.leadStage, stage);
-    };
-
-    const saveLeadContact = (contact) => {
-        visitorContact = contact;
-        writeChatSessionValue(CHAT_SESSION_KEYS.userContact, visitorContact);
-    };
-
-    const saveLeadTask = (task) => {
-        leadTask = task;
-        writeChatSessionValue(CHAT_SESSION_KEYS.leadTask, leadTask);
-    };
-
-    const leadContactRequest = () => {
-        if (visitorInterest === "telegram") {
-            if (currentLang === "en") return "Got it, you need a Telegram bot. So the Sildram Studio team can contact you and suggest a solution, please leave a convenient contact: Telegram, phone, or email.";
-            if (currentLang === "ru") return "\u041f\u043e\u043d\u044f\u043b, \u0432\u0430\u043c \u043d\u0443\u0436\u0435\u043d Telegram-\u0431\u043e\u0442. \u0427\u0442\u043e\u0431\u044b \u043a\u043e\u043c\u0430\u043d\u0434\u0430 Sildram Studio \u043c\u043e\u0433\u043b\u0430 \u0441\u0432\u044f\u0437\u0430\u0442\u044c\u0441\u044f \u0441 \u0432\u0430\u043c\u0438 \u0438 \u043f\u0440\u0435\u0434\u043b\u043e\u0436\u0438\u0442\u044c \u0440\u0435\u0448\u0435\u043d\u0438\u0435, \u043e\u0441\u0442\u0430\u0432\u044c\u0442\u0435, \u043f\u043e\u0436\u0430\u043b\u0443\u0439\u0441\u0442\u0430, \u0443\u0434\u043e\u0431\u043d\u044b\u0439 \u043a\u043e\u043d\u0442\u0430\u043a\u0442: Telegram, \u0442\u0435\u043b\u0435\u0444\u043e\u043d \u0438\u043b\u0438 email.";
-            return "\u0417\u0440\u043e\u0437\u0443\u043c\u0456\u0432, \u0432\u0430\u043c \u043f\u043e\u0442\u0440\u0456\u0431\u0435\u043d Telegram-\u0431\u043e\u0442. \u0429\u043e\u0431 \u043a\u043e\u043c\u0430\u043d\u0434\u0430 Sildram Studio \u043c\u043e\u0433\u043b\u0430 \u0437\u0432'\u044f\u0437\u0430\u0442\u0438\u0441\u044f \u0437 \u0432\u0430\u043c\u0438 \u0456 \u0437\u0430\u043f\u0440\u043e\u043f\u043e\u043d\u0443\u0432\u0430\u0442\u0438 \u0440\u0456\u0448\u0435\u043d\u043d\u044f, \u0437\u0430\u043b\u0438\u0448\u0442\u0435, \u0431\u0443\u0434\u044c \u043b\u0430\u0441\u043a\u0430, \u0437\u0440\u0443\u0447\u043d\u0438\u0439 \u043a\u043e\u043d\u0442\u0430\u043a\u0442: Telegram, \u0442\u0435\u043b\u0435\u0444\u043e\u043d \u0430\u0431\u043e email.";
-        }
-        return getLeadCopy().contact(visitorName);
-    };
-
-    const submitLead = async () => {
-        const response = await fetch("/api/lead", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                name: visitorName,
-                contact: visitorContact,
-                interest: visitorInterest,
-                task: leadTask,
-                language: currentLang,
-                history
-            })
-        });
-
-        if (!response.ok) throw new Error(`Lead endpoint returned ${response.status}`);
-        const data = await response.json();
-        if (!data.ok) throw new Error("Lead endpoint returned ok=false");
-        return data;
-    };
-
-    const handleLeadFlow = async (value, memory) => {
-        const copy = getLeadCopy();
-        const contact = detectLeadContact(value);
-
-        if (contact && leadStage === "need_contact") {
-            saveLeadContact(contact);
-            setLeadStage("need_task");
-            return copy.task;
-        }
-
-        if (leadStage === "need_task") {
-            saveLeadTask(value);
-            try {
-                await submitLead();
-                setLeadStage("completed");
-                return copy.done(visitorName);
-            } catch (error) {
-                setLeadStage("completed");
-                return copy.fail;
-            }
-        }
-
-        return "";
-    };
-
     const applyOnboardingMemory = (value, expectedContext = "") => {
         const detectedInterest = detectChatInterest(value);
         const business = detectClientBusinessDescription(value, expectedContext);
@@ -1718,19 +1659,6 @@ function createChatWidget() {
         return { detectedName, detectedInterest, business, solutionRequest, services };
     };
 
-    const getOnboardingReply = (memory) => {
-        const copy = getChatCopy();
-        if (memory.detectedName && !memory.detectedInterest) {
-            return getDialogueCopy().nameKnown(memory.detectedName);
-        }
-
-        if (memory.detectedInterest && !visitorName && !memory.detectedName && !memory.business && !memory.solutionRequest) {
-            return copy.taskOnly[memory.detectedInterest] || copy.taskOnly.automation;
-        }
-
-        return "";
-    };
-
     const sendMessage = async (text) => {
         const value = text.trim();
         if (!value) return;
@@ -1738,64 +1666,14 @@ function createChatWidget() {
         rememberMessage("user", value);
         const expectedContext = detectExpectedContext();
 
-        if (detectGreeting(value)) {
-            const reply = visitorName
-                ? getDialogueCopy().greetingKnown(visitorName)
-                : getDialogueCopy().greetingUnknown;
-            addMessage(reply, "bot");
-            rememberMessage("assistant", reply);
-            updateDialogStateFromReply(reply);
-            syncChatMemory([
-                { role: "user", content: value },
-                { role: "assistant", content: reply }
-            ]);
-            return;
-        }
-
-        if (isAffirmativeContinuation(value)) {
-            const reply = await getAssistantReply(value, {
-                intent: "SHOW_EXAMPLE",
-                businessDomain: lastBusinessDomain,
-                businessDescription: lastBusinessDescription
-            });
-            setLastIntent("SHOW_EXAMPLE");
-            setExpectedFollowup("");
-            addMessage(reply, "bot");
-            rememberMessage("assistant", reply);
-            updateDialogStateFromReply(reply);
-            syncChatMemory([
-                { role: "user", content: value },
-                { role: "assistant", content: reply }
-            ]);
-            return;
-        }
-
         const memory = applyOnboardingMemory(value, expectedContext);
-        if (memory.solutionRequest) setLastIntent("SOLUTION_REQUEST");
-        else if (memory.business) setLastIntent("BUSINESS_CONTEXT");
-        const leadReply = await handleLeadFlow(value, memory);
-        if (leadReply) {
-            addMessage(leadReply, "bot");
-            rememberMessage("assistant", leadReply);
-            updateDialogStateFromReply(leadReply);
-            syncChatMemory([
-                { role: "user", content: value },
-                { role: "assistant", content: leadReply }
-            ]);
-            return;
-        }
-
-        const onboardingReply = getOnboardingReply(memory);
-        if (onboardingReply) {
-            addMessage(onboardingReply, "bot");
-            rememberMessage("assistant", onboardingReply);
-            updateDialogStateFromReply(onboardingReply);
-            syncChatMemory([
-                { role: "user", content: value },
-                { role: "assistant", content: onboardingReply }
-            ]);
-            return;
-        }
+        const clientIntent = isAffirmativeContinuation(value)
+            ? "SHOW_EXAMPLE"
+            : detectGreeting(value)
+                ? "GREETING"
+                : memory.solutionRequest
+                    ? "SOLUTION_REQUEST"
+                    : "";
 
         const typing = document.createElement("div");
         typing.className = "chat-message bot";
@@ -1804,7 +1682,7 @@ function createChatWidget() {
         messages.scrollTop = messages.scrollHeight;
 
         const reply = await getAssistantReply(value, {
-            intent: memory.solutionRequest ? "SOLUTION_REQUEST" : "",
+            intent: clientIntent,
             expectedContext,
             businessDomain: lastBusinessDomain,
             businessDescription: lastBusinessDescription
