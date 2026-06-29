@@ -1543,7 +1543,7 @@ function createChatWidget() {
     const isAffirmativeContinuation = (text) => {
         const value = String(text || "").toLowerCase().replace(/[!?.,"'()]/g, " ").replace(/\s+/g, " ").trim();
         if (expectedFollowup !== "example_confirmation") return false;
-        return /^(yes|yes show|show|show example|ok|ok show|okay|okay show|sure|\u0434\u0430|\u0434\u0430\s+\u043f\u043e\u043a\u0430\u0436\S*|\u043e\u043a\s+\u043f\u043e\u043a\u0430\u0436\S*|\u043f\u043e\u043a\u0430\u0436\S*|\u043f\u043e\u043a\u0430\u0436\S*\s+\u043f\u0440\u0438\u043c\u0435\u0440|\u0442\u0430\u043a|\u0442\u0430\u043a\s+\u043f\u043e\u043a\u0430\u0436\S*|\u043e\u043a|\u0445\u043e\u0440\u043e\u0448\u043e|\u0434\u043e\u0431\u0440\u0435)$/.test(value);
+        return /^(yes|yes\s+show(?:\s+(?:example|scenario))?|show(?:\s+(?:example|scenario))?|ok|ok\s+show(?:\s+(?:example|scenario))?|okay|okay\s+show(?:\s+(?:example|scenario))?|sure|\u0434\u0430|\u0434\u0430\s+\u043f\u043e\u043a\u0430\u0436\S*(?:\s+.{0,40})?|\u043e\u043a\s+\u043f\u043e\u043a\u0430\u0436\S*(?:\s+.{0,40})?|\u043f\u043e\u043a\u0430\u0436\S*(?:\s+(\u0442\u0430\u043a\u043e\u0439\s+)?(\u043f\u0440\u0438\u043c\u0435\u0440|\u0441\u0446\u0435\u043d\u0430\u0440))?|\u0442\u0430\u043a|\u0442\u0430\u043a\s+\u043f\u043e\u043a\u0430\u0436\S*(?:\s+.{0,40})?|\u043e\u043a|\u0445\u043e\u0440\u043e\u0448\u043e|\u0434\u043e\u0431\u0440\u0435)$/.test(value);
     };
 
     const buildContinuationReply = () => {

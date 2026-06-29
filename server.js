@@ -248,6 +248,9 @@ function detectCrmImplementationIntent(message) {
 
 function detectCommercialIntent(message) {
     const normalized = normalizeServiceTerms(message).toLowerCase();
+    const hasScenarioWord = /(\u0441\u0446\u0435\u043d\u0430\u0440|scenario)/i.test(normalized);
+    const hasExplicitPriceAsk = /(\u0441\u043a\u043e\u043b\u044c\u043a\u043e|\u0441\u043a\u0456\u043b\u044c\u043a\u0438).{0,30}(\u0441\u0442\u043e\u0438|\u043a\u043e\u0448\u0442|\u0446\u0435\u043d|\u0446\u0456\u043d|\u0441\u0442\u043e\u0438\u043c\u043e\u0441\u0442|\u0432\u0430\u0440\u0442\u0456\u0441\u0442)|(^|\s)(\u0441\u0442\u043e\u0438\u0442|\u043a\u043e\u0448\u0442\u0443\S*|\u0446\u0435\u043d\u0430|\u0446\u0435\u043d\u0443|\u0446\u0435\u043d\u044b|\u0446\u0456\u043d\u0430|\u0446\u0456\u043d\u0443|\u0441\u0442\u043e\u0438\u043c\u043e\u0441\u0442\u044c|\u0432\u0430\u0440\u0442\u0456\u0441\u0442\u044c|\u0431\u044e\u0434\u0436\u0435\u0442|price|cost|budget|estimate)(\s|$)|how\s+much/i.test(normalized);
+    if (hasScenarioWord && !hasExplicitPriceAsk) return "";
     if (priceIntentPatterns.some((pattern) => pattern.test(normalized))) return "price";
     if (priceIntentPhrases.some((phrase) => normalized.includes(phrase))) return "price";
     if (detectCloseOrderIntent(message)) return "buy";
@@ -304,12 +307,12 @@ function mergeRequestedServices(...sources) {
 
 function detectExampleRequest(message) {
     const normalized = normalizeBusinessText(message);
-    return /(\u043f\u043e\u043a\u0430\u0436\S*\s+.{0,30}\u043f\u0440\u0438\u043c\u0435\u0440|\u043f\u0440\u0438\u043c\u0435\u0440\s+.{0,40}(\u0432\u043d\u0435\u0434\u0440|\u0446\u0440\u043c|\u0441\u0440\u043c|crm)|show\s+.{0,30}example|example\s+.{0,30}(crm|implementation))/i.test(normalized);
+    return /(\u043f\u043e\u043a\u0430\u0436\S*\s+.{0,30}(\u043f\u0440\u0438\u043c\u0435\u0440|\u0441\u0446\u0435\u043d\u0430\u0440)|(\u043f\u0440\u0438\u043c\u0435\u0440|\u0441\u0446\u0435\u043d\u0430\u0440)\s+.{0,40}(\u0432\u043d\u0435\u0434\u0440|\u0446\u0440\u043c|\u0441\u0440\u043c|crm)|show\s+.{0,30}(example|scenario)|(example|scenario)\s+.{0,30}(crm|implementation))/i.test(normalized);
 }
 
 function detectExampleConfirmation(message) {
     const normalized = normalizeBusinessText(message);
-    return /^(yes|yes show|show|show example|ok show|okay show|\u0434\u0430|\u0434\u0430\s+\u043f\u043e\u043a\u0430\u0436\S*|\u0434\u0430\s+\u043f\u0440\u0438\u043c\u0435\u0440|\u043e\u043a\s+\u043f\u043e\u043a\u0430\u0436\S*|\u043f\u043e\u043a\u0430\u0436\S*|\u043f\u043e\u043a\u0430\u0436\S*\s+\u043f\u0440\u0438\u043c\u0435\u0440|\u0442\u0430\u043a|\u0442\u0430\u043a\s+\u043f\u043e\u043a\u0430\u0436\S*)$/.test(normalized);
+    return /^(yes|yes\s+show(?:\s+(?:example|scenario))?|show(?:\s+(?:example|scenario))?|ok\s+show(?:\s+(?:example|scenario))?|okay\s+show(?:\s+(?:example|scenario))?|\u0434\u0430|\u0434\u0430\s+\u043f\u043e\u043a\u0430\u0436\S*(?:\s+.{0,40})?|\u0434\u0430\s+(\u043f\u0440\u0438\u043c\u0435\u0440|\u0441\u0446\u0435\u043d\u0430\u0440)(?:\s+.{0,30})?|\u043e\u043a\s+\u043f\u043e\u043a\u0430\u0436\S*(?:\s+.{0,40})?|\u043f\u043e\u043a\u0430\u0436\S*(?:\s+(\u0442\u0430\u043a\u043e\u0439\s+)?(\u043f\u0440\u0438\u043c\u0435\u0440|\u0441\u0446\u0435\u043d\u0430\u0440))?|\u0442\u0430\u043a|\u0442\u0430\u043a\s+\u043f\u043e\u043a\u0430\u0436\S*(?:\s+.{0,40})?)$/.test(normalized);
 }
 
 function classifyBusinessQuestion(message) {
@@ -388,7 +391,7 @@ function expectsExampleFromHistory(history) {
     return (
         (text.includes("\u0445\u043e\u0442\u0438\u0442\u0435") || text.includes("\u0445\u043e\u0447\u0435\u0442\u0435") || text.includes("would you like"))
         && (text.includes("\u043f\u043e\u043a\u0430\u0436") || text.includes("show"))
-    ) || /(\u043f\u043e\u043a\u0430\u0437\u0430\u0442\S*\s+.{0,30}\u043f\u0440\u0438\u043c\u0435\u0440|show\s+an\s+example|show\s+a\s+simple)/i.test(text);
+    ) || /(\u043f\u043e\u043a\u0430\u0436\S*\s+.{0,30}(\u043f\u0440\u043e\u0441\u0442\S*\s+)?(\u043f\u0440\u0438\u043c\u0435\u0440|\u0441\u0446\u0435\u043d\u0430\u0440)|\u043f\u043e\u043a\u0430\u0437\u0430\u0442\S*\s+.{0,30}(\u043f\u0440\u0438\u043c\u0435\u0440|\u0441\u0446\u0435\u043d\u0430\u0440)|show\s+an\s+(example|scenario)|show\s+a\s+(simple\s+)?(example|scenario))/i.test(text);
 }
 
 function detectBusinessContext(value) {
@@ -676,6 +679,14 @@ function buildShowExampleReply(lang, message, context = {}) {
             default: "CRM implementation example: a client submits a website form or writes to a Telegram bot, the system creates a CRM client card, records the source, task, and status. The manager sees the next step: call back, clarify details, or process the order."
         }
     };
+    if (domain === "FOOD_HOSPITALITY") {
+        const foodReplies = {
+            uk: "\u041f\u0440\u043e\u0441\u0442\u0438\u0439 \u0441\u0446\u0435\u043d\u0430\u0440\u0456\u0439 \u0434\u043b\u044f \u0434\u043e\u0441\u0442\u0430\u0432\u043a\u0438 \u0457\u0436\u0456: \u043a\u043b\u0456\u0454\u043d\u0442 \u0432\u0456\u0434\u043a\u0440\u0438\u0432\u0430\u0454 \u0441\u0430\u0439\u0442 \u0430\u0431\u043e \u043c\u0435\u043d\u044e, \u043e\u0431\u0438\u0440\u0430\u0454 \u0441\u0442\u0440\u0430\u0432\u0438, Telegram-\u0431\u043e\u0442 \u0443\u0442\u043e\u0447\u043d\u044e\u0454 \u0430\u0434\u0440\u0435\u0441\u0443, \u0442\u0435\u043b\u0435\u0444\u043e\u043d \u0456 \u0441\u043f\u043e\u0441\u0456\u0431 \u043e\u043f\u043b\u0430\u0442\u0438, \u0430 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u043d\u043e \u043f\u043e\u0442\u0440\u0430\u043f\u043b\u044f\u0454 \u0432 CRM \u0437\u0456 \u0441\u0442\u0430\u0442\u0443\u0441\u043e\u043c \u00ab\u043d\u043e\u0432\u0435\u00bb. \u041c\u0435\u043d\u0435\u0434\u0436\u0435\u0440 \u0431\u0430\u0447\u0438\u0442\u044c \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f, \u043f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0436\u0443\u0454 \u0439\u043e\u0433\u043e \u0456 \u043f\u0435\u0440\u0435\u0434\u0430\u0454 \u043d\u0430 \u043a\u0443\u0445\u043d\u044e. \u041f\u0456\u0441\u043b\u044f \u0446\u044c\u043e\u0433\u043e \u043c\u043e\u0436\u043d\u0430 \u043d\u0430\u0434\u0456\u0441\u043b\u0430\u0442\u0438 \u043a\u043b\u0456\u0454\u043d\u0442\u0443 \u043f\u043e\u0432\u0456\u0434\u043e\u043c\u043b\u0435\u043d\u043d\u044f \u043f\u0440\u043e \u0441\u0442\u0430\u0442\u0443\u0441 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f.",
+            ru: "\u041f\u0440\u043e\u0441\u0442\u043e\u0439 \u0441\u0446\u0435\u043d\u0430\u0440\u0438\u0439 \u0434\u043b\u044f \u0434\u043e\u0441\u0442\u0430\u0432\u043a\u0438 \u0435\u0434\u044b: \u043a\u043b\u0438\u0435\u043d\u0442 \u043e\u0442\u043a\u0440\u044b\u0432\u0430\u0435\u0442 \u0441\u0430\u0439\u0442 \u0438\u043b\u0438 \u043c\u0435\u043d\u044e, \u0432\u044b\u0431\u0438\u0440\u0430\u0435\u0442 \u0431\u043b\u044e\u0434\u0430, Telegram-\u0431\u043e\u0442 \u0443\u0442\u043e\u0447\u043d\u044f\u0435\u0442 \u0430\u0434\u0440\u0435\u0441, \u0442\u0435\u043b\u0435\u0444\u043e\u043d \u0438 \u0441\u043f\u043e\u0441\u043e\u0431 \u043e\u043f\u043b\u0430\u0442\u044b, \u0430 \u0437\u0430\u043a\u0430\u0437 \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438 \u043f\u043e\u043f\u0430\u0434\u0430\u0435\u0442 \u0432 CRM \u0441\u043e \u0441\u0442\u0430\u0442\u0443\u0441\u043e\u043c \u00ab\u043d\u043e\u0432\u044b\u0439\u00bb. \u041c\u0435\u043d\u0435\u0434\u0436\u0435\u0440 \u0432\u0438\u0434\u0438\u0442 \u0437\u0430\u043a\u0430\u0437, \u043f\u043e\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0430\u0435\u0442 \u0435\u0433\u043e \u0438 \u043f\u0435\u0440\u0435\u0434\u0430\u0451\u0442 \u043d\u0430 \u043a\u0443\u0445\u043d\u044e. \u041f\u043e\u0441\u043b\u0435 \u044d\u0442\u043e\u0433\u043e \u043c\u043e\u0436\u043d\u043e \u043e\u0442\u043f\u0440\u0430\u0432\u0438\u0442\u044c \u043a\u043b\u0438\u0435\u043d\u0442\u0443 \u0443\u0432\u0435\u0434\u043e\u043c\u043b\u0435\u043d\u0438\u0435 \u043e \u0441\u0442\u0430\u0442\u0443\u0441\u0435 \u0437\u0430\u043a\u0430\u0437\u0430.",
+            en: "A simple scenario for food delivery: a customer opens the website or menu, chooses dishes, the Telegram bot clarifies the address, phone number, and payment method, and the order automatically goes to CRM with the status \"new\". The manager sees the order, confirms it, and passes it to the kitchen. After that, the customer can receive a notification about the order status."
+        };
+        return foodReplies[lang] || foodReplies.uk;
+    }
     const locale = replies[lang] || replies.uk;
     return locale[domain] || locale.default;
 }
@@ -1458,6 +1469,21 @@ async function handleChat(req, res) {
         return;
     }
 
+    if (
+        sessionContext.intent === "SHOW_EXAMPLE"
+        || (expectsExampleFromHistory(contextHistory) && detectExampleConfirmation(message))
+    ) {
+        appendChatMessage(visitorSession, "user", message);
+        const reply = buildShowExampleReply(lang, message, sessionContext);
+        appendChatMessage(visitorSession, "assistant", reply);
+        saveChatSession(visitorSession);
+        sendJson(res, 200, buildChatReplyPayload(reply, {
+            nextExpects: "none",
+            intent: "SHOW_EXAMPLE"
+        }), chatHeaders);
+        return;
+    }
+
     if (expectedContext === "CONTACT_CONTEXT") {
         appendChatMessage(visitorSession, "user", message);
         const contact = detectLeadContact(message);
@@ -1566,8 +1592,7 @@ async function handleChat(req, res) {
     }
 
     if (
-        sessionContext.intent === "SHOW_EXAMPLE"
-        || detectExampleRequest(message)
+        detectExampleRequest(message)
         || (expectsExampleFromHistory(contextHistory) && detectExampleConfirmation(message))
     ) {
         const reply = buildShowExampleReply(lang, message, sessionContext);
